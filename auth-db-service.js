@@ -231,14 +231,6 @@
             id: data.user.id,
             email: data.user.email,
             fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
-            studentId: meta.student_id || 'MAK-2026',
-        if (profileErr || !profile) {
-          const meta = data.user.user_metadata || {};
-          const isSayang = cleanEmail === 'sayangorai298@gmail.com';
-          const fallbackUser = {
-            id: data.user.id,
-            email: data.user.email,
-            fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
             studentId: meta.student_id || 'Not provided',
             college: meta.college || 'Not provided',
             branch: meta.branch || 'Computer Science & Engineering',
