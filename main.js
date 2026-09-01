@@ -90,7 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
       navAvatar.style.background = user.avatarGradient || 'linear-gradient(135deg, #3b82f6, #06b6d4)';
     }
     if (navName) navName.textContent = user.fullName;
-    if (navRole) navRole.textContent = user.role === 'ADMIN' ? 'Dean (Admin)' : (user.role === 'MODERATOR' ? 'Faculty Moderator' : 'Student');
+    if (navRole) {
+      navRole.textContent = user.role === 'ADMIN' ? 'Dean (Admin)' : (user.role === 'CR' ? 'Class Representative' : (user.role === 'MODERATOR' ? 'Faculty Moderator' : 'Student'));
+    }
 
     // Dropdown elements
     const ddName = document.getElementById('dropdown-full-name');
@@ -114,12 +116,17 @@ document.addEventListener('DOMContentLoaded', () => {
       myAvatarLg.style.background = user.avatarGradient || 'linear-gradient(135deg, #3b82f6, #06b6d4)';
     }
     if (myFullName) myFullName.textContent = `${user.fullName} (${user.studentId || 'Verified'})`;
-    if (myRolePill) myRolePill.textContent = user.role === 'ADMIN' ? 'Academic Dean' : (user.role === 'MODERATOR' ? 'Faculty Moderator' : 'Verified Student');
+    if (myRolePill) {
+      myRolePill.textContent = user.role === 'ADMIN' ? 'Academic Dean' : (user.role === 'CR' ? 'Class Representative (CR)' : (user.role === 'MODERATOR' ? 'Faculty Moderator' : 'Verified Student'));
+    }
     if (myCollegeLine) myCollegeLine.textContent = `${user.college || 'MAKAUT'} · ${user.branch || 'CSE'} (${user.semester || 'Sem I'})`;
 
-    // Admin-only nav item toggle
+    // Role-specific nav toggles
+    document.querySelectorAll('.role-cr-or-admin-only').forEach((el) => {
+      el.style.display = ['CR', 'ADMIN'].includes(user.role) ? 'flex' : 'none';
+    });
     document.querySelectorAll('.role-admin-only').forEach((el) => {
-      el.style.display = ['ADMIN', 'MODERATOR'].includes(user.role) ? 'flex' : 'none';
+      el.style.display = user.role === 'ADMIN' ? 'flex' : 'none';
     });
   }
 
@@ -132,10 +139,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Role-protection for Admin Panel
+    // Role-protection for CR Hub
+    if (viewName === 'cr-panel') {
+      const user = authDb.getCurrentUser();
+      if (!user || !['CR', 'ADMIN'].includes(user.role)) {
+        showToast('Access Denied: Class Representative access required.');
+        navigateTo('dashboard');
+        return;
+      }
+    }
+
+    // Role-protection for Admin Panel (Admin Only)
     if (viewName === 'admin-panel') {
       const user = authDb.getCurrentUser();
-      if (!user || !['ADMIN', 'MODERATOR'].includes(user.role)) {
+      if (!user || user.role !== 'ADMIN') {
         showToast('Access Denied: Administration privileges required.');
         navigateTo('dashboard');
         return;
@@ -175,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (viewName === 'my-uploads') await renderMyUploadsView();
     else if (viewName === 'progress') renderProgressView();
     else if (viewName === 'bookmarks') await renderBookmarksView();
+    else if (viewName === 'cr-panel') await renderCRView();
     else if (viewName === 'admin-panel') renderAdminView();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1547,7 +1565,167 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --------------------------------------------------------------------------
-  // 14. ADMIN PANEL & USER MANAGEMENT
+  // 14. CLASS REPRESENTATIVE HUB (CR-SCOPED)
+  // --------------------------------------------------------------------------
+  let crMembersSearchQuery = '';
+
+  async function renderCRView() {
+    const user = authDb.getCurrentUser();
+    if (!user || !['CR', 'ADMIN'].includes(user.role)) return;
+
+    const branch = user.branch || 'Computer Science & Engineering';
+    const semester = user.semester || 'Semester I';
+
+    // 1. Class Scope Subtitle & Badge
+    const scopeSubtitle = document.getElementById('cr-class-scope-subtitle');
+    const badgeText = document.getElementById('cr-class-badge-text');
+    if (scopeSubtitle) {
+      scopeSubtitle.textContent = `Assigned Class: ${user.college || 'MAKAUT'} · ${branch} (${semester})`;
+    }
+    if (badgeText) {
+      badgeText.textContent = `${branch} · ${semester}`;
+    }
+
+    // 2. Class Members Directory
+    const membersTableBody = document.getElementById('cr-members-table-body');
+    const statStudents = document.getElementById('cr-stat-students-count');
+    const statNotes = document.getElementById('cr-stat-notes-count');
+    const statAnns = document.getElementById('cr-stat-announcements-count');
+
+    try {
+      let members = await authDb.getClassMembersAsync();
+      if (statStudents) statStudents.textContent = members.length;
+
+      if (crMembersSearchQuery.trim()) {
+        const q = crMembersSearchQuery.toLowerCase().trim();
+        members = members.filter(m =>
+          (m.fullName && m.fullName.toLowerCase().includes(q)) ||
+          (m.email && m.email.toLowerCase().includes(q)) ||
+          (m.studentId && m.studentId.toLowerCase().includes(q)) ||
+          (m.college && m.college.toLowerCase().includes(q))
+        );
+      }
+
+      if (membersTableBody) {
+        if (members.length === 0) {
+          membersTableBody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-dim);">
+                No student classmates found matching this section.
+              </td>
+            </tr>
+          `;
+        } else {
+          membersTableBody.innerHTML = members.map(m => {
+            const initials = m.fullName ? m.fullName.split(' ').map(n => n[0]).join('').slice(0, 2) : 'ST';
+            let roleClass = 'role-badge-student';
+            let roleLabel = 'STUDENT';
+            if (m.role === 'ADMIN') { roleClass = 'role-badge-admin'; roleLabel = 'ADMIN'; }
+            else if (m.role === 'CR') { roleClass = 'role-badge-cr'; roleLabel = 'CLASS REPRESENTATIVE'; }
+            else if (m.role === 'MODERATOR') { roleClass = 'role-badge-mod'; roleLabel = 'MODERATOR'; }
+
+            return `
+              <tr>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 0.7rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: ${m.avatarGradient || 'linear-gradient(135deg, #3b82f6, #06b6d4)'}; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fff;">
+                      ${initials}
+                    </div>
+                    <div>
+                      <strong style="color: #fff; font-size: 0.9rem; display: block;">${escapeHTML(m.fullName)}</strong>
+                      <span style="font-size: 0.78rem; color: var(--text-dim);">${escapeHTML(m.email)}</span>
+                    </div>
+                  </div>
+                </td>
+                <td><span style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">${escapeHTML(m.studentId || 'Not provided')}</span></td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHTML(m.college || 'Not provided')}</td>
+                <td style="font-size: 0.82rem; color: var(--text-dim);">${escapeHTML(m.branch)} (${escapeHTML(m.semester)})</td>
+                <td><span class="role-badge ${roleClass}">${roleLabel}</span></td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    } catch (e) {
+      console.warn('Error rendering CR class members:', e);
+    }
+
+    // 3. Class Notes Stat
+    try {
+      const allNotes = await authDb.getAllNotesAsync();
+      if (statNotes) statNotes.textContent = allNotes.length;
+    } catch (e) {}
+
+    // 4. Class Announcements Feed
+    const annsList = document.getElementById('cr-announcements-list');
+    try {
+      const anns = await authDb.getClassAnnouncementsAsync();
+      if (statAnns) statAnns.textContent = anns.length;
+
+      if (annsList) {
+        if (anns.length === 0) {
+          annsList.innerHTML = `<p style="color: var(--text-dim); font-size: 0.88rem; padding: 1.5rem; text-align: center;">No class notices posted yet. Use the form on the left to publish updates.</p>`;
+        } else {
+          annsList.innerHTML = anns.map(a => `
+            <div class="announcement-card ${a.badgeType === 'URGENT' ? 'urgent' : ''}" style="margin-bottom: 0.8rem;">
+              <div class="ann-header">
+                <span class="ann-tag">${escapeHTML(a.badgeType)} · ${escapeHTML(a.category)}</span>
+                <span class="ann-time">${window.formatTimeAgo ? window.formatTimeAgo(a.createdAt) : 'Recently'}</span>
+              </div>
+              <h4 class="ann-title">${escapeHTML(a.title)}</h4>
+              <p class="ann-content">${escapeHTML(a.content)}</p>
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.4rem;">
+                Posted by <strong>${escapeHTML(a.authorName)}</strong>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    } catch (e) {}
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // CR Member Search
+  const crMemberSearchInput = document.getElementById('cr-member-search-input');
+  if (crMemberSearchInput) {
+    crMemberSearchInput.addEventListener('input', (e) => {
+      crMembersSearchQuery = e.target.value;
+      renderCRView();
+    });
+  }
+
+  // CR Announcement Form Submit
+  const crAnnouncementForm = document.getElementById('cr-announcement-form');
+  if (crAnnouncementForm) {
+    crAnnouncementForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const titleInput = document.getElementById('cr-ann-title');
+      const catInput = document.getElementById('cr-ann-cat');
+      const badgeInput = document.getElementById('cr-ann-badge');
+      const contentInput = document.getElementById('cr-ann-content');
+
+      const title = titleInput.value.trim();
+      const category = catInput.value;
+      const badgeType = badgeInput.value;
+      const content = contentInput.value.trim();
+
+      if (!title || !content) return;
+
+      try {
+        await authDb.createClassAnnouncementAsync({ title, category, badgeType, content });
+        showToast('✓ Class notice successfully published!');
+        titleInput.value = '';
+        contentInput.value = '';
+        await renderCRView();
+      } catch (err) {
+        showToast(`Error publishing notice: ${err.message}`);
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 15. ADMIN PANEL & USER MANAGEMENT
   // --------------------------------------------------------------------------
   let pendingRoleChange = null;
   const roleConfirmModal = document.getElementById('modal-role-confirm-backdrop');
@@ -1556,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function renderAdminView() {
     const user = authDb.getCurrentUser();
-    if (!user || !['ADMIN', 'MODERATOR'].includes(user.role)) return;
+    if (!user || user.role !== 'ADMIN') return;
 
     // 1. Reports Queue
     const reportsList = document.getElementById('admin-reports-list');
@@ -1609,7 +1787,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           tableBody.innerHTML = allUsers.map(u => {
             const initials = u.fullName ? u.fullName.split(' ').map(n => n[0]).join('').slice(0, 2) : 'ST';
-            const roleClass = u.role === 'ADMIN' ? 'role-badge-admin' : (u.role === 'MODERATOR' ? 'role-badge-mod' : 'role-badge-student');
+            let roleClass = 'role-badge-student';
+            let roleDisplay = 'STUDENT';
+            if (u.role === 'ADMIN') { roleClass = 'role-badge-admin'; roleDisplay = 'ADMIN'; }
+            else if (u.role === 'CR') { roleClass = 'role-badge-cr'; roleDisplay = 'CLASS REPRESENTATIVE'; }
+            else if (u.role === 'MODERATOR') { roleClass = 'role-badge-mod'; roleDisplay = 'MODERATOR'; }
+
             const isSelf = u.id === user.id;
 
             let actionButtons = '';
@@ -1618,8 +1801,25 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (u.role === 'STUDENT') {
               actionButtons = `
                 <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                  <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="CR">
+                    <i data-lucide="award"></i> Make CR
+                  </button>
                   <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="MODERATOR">
-                    <i data-lucide="shield"></i> Make Moderator
+                    <i data-lucide="shield"></i> Make Mod
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="ADMIN">
+                    <i data-lucide="shield-alert"></i> Make Admin
+                  </button>
+                </div>
+              `;
+            } else if (u.role === 'CR') {
+              actionButtons = `
+                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                  <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="STUDENT">
+                    <i data-lucide="user-minus"></i> Remove CR
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="MODERATOR">
+                    <i data-lucide="shield"></i> Make Mod
                   </button>
                   <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="ADMIN">
                     <i data-lucide="shield-alert"></i> Make Admin
@@ -1631,6 +1831,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
                   <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="STUDENT">
                     <i data-lucide="user-minus"></i> Demote to Student
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="CR">
+                    <i data-lucide="award"></i> Make CR
                   </button>
                   <button class="btn btn-sm btn-outline btn-change-role" data-uid="${u.id}" data-name="${escapeHTML(u.fullName)}" data-email="${escapeHTML(u.email)}" data-oldrole="${u.role}" data-newrole="ADMIN">
                     <i data-lucide="shield-alert"></i> Make Admin
@@ -1659,12 +1862,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   </div>
                 </td>
                 <td>
-                  <span style="font-size: 0.85rem; color: var(--text-main); font-weight: 600;">${escapeHTML(u.studentId || 'N/A')}</span>
+                  <span style="font-size: 0.85rem; color: var(--text-main); font-weight: 600;">${escapeHTML(u.studentId || 'Not provided')}</span>
                   <span style="display: block; font-size: 0.75rem; color: var(--text-dim);">${escapeHTML(u.branch || 'CSE')} (${escapeHTML(u.semester || 'Sem I')})</span>
                 </td>
-                <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHTML(u.college || 'MAKAUT')}</td>
-                <td><span class="role-badge ${roleClass}">${u.role}</span></td>
-                <td><span style="font-size: 0.85rem; font-weight: 700; color: var(--accent-amber);">⭐ ${u.karmaPoints || 100}</span></td>
+                <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHTML(u.college || 'Not provided')}</td>
+                <td><span class="role-badge ${roleClass}">${roleDisplay}</span></td>
+                <td><span style="font-size: 0.85rem; font-weight: 700; color: var(--accent-amber);">⭐ ${u.karmaPoints || 0}</span></td>
                 <td>${actionButtons}</td>
               </tr>
             `;
@@ -1683,10 +1886,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
               pendingRoleChange = { targetUserId, targetName, targetEmail, oldRole, newRole };
 
+              const oldDisplay = oldRole === 'CR' ? 'CLASS REPRESENTATIVE' : oldRole;
+              const newDisplay = newRole === 'CR' ? 'CLASS REPRESENTATIVE' : newRole;
+
               document.getElementById('role-confirm-user-name').textContent = targetName;
               document.getElementById('role-confirm-user-email').textContent = targetEmail;
-              document.getElementById('role-confirm-old-badge').textContent = oldRole;
-              document.getElementById('role-confirm-new-badge').textContent = newRole;
+              document.getElementById('role-confirm-old-badge').textContent = oldDisplay;
+              document.getElementById('role-confirm-new-badge').textContent = newDisplay;
 
               if (roleConfirmModal) roleConfirmModal.classList.add('open');
             });

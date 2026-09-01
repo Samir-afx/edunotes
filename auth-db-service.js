@@ -997,9 +997,9 @@
       const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
       const user = users.find((u) => u.id === targetUserId);
       const karma = user ? (user.karmaPoints || user.karma_points || 0) : (this.currentUser && this.currentUser.id === targetUserId ? (this.currentUser.karmaPoints || 0) : 0);
-
       let badge = 'Student Contributor 📚';
       if (totalDownloads > 100 || karma > 400) badge = 'Master Contributor ⭐';
+      if (user && user.role === 'CR') badge = 'Class Representative 🎓';
       if (user && user.role === 'ADMIN') badge = 'Academic Dean 🏛️';
       if (user && user.role === 'MODERATOR') badge = 'Faculty Moderator 🛡️';
 
@@ -1012,6 +1012,14 @@
       };
     }
 
+    isCR() {
+      return Boolean(this.currentUser && this.currentUser.role === 'CR');
+    }
+
+    isClassRepresentativeOrAdmin() {
+      return Boolean(this.currentUser && (this.currentUser.role === 'CR' || this.currentUser.role === 'ADMIN'));
+    }
+
     addKarmaPoints(userId, pts) {
       const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
       const idx = users.findIndex((u) => u.id === userId);
@@ -1022,6 +1030,146 @@
           this.saveLocalSession(users[idx]);
         }
       }
+    }
+
+    // ------------------------------------------------------------------------
+    // CLASS REPRESENTATIVE (CR) CLASS-SCOPED METHODS
+    // ------------------------------------------------------------------------
+    async getClassMembersAsync() {
+      if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
+        throw new Error('Access Denied: Only a Class Representative or Admin can view class members.');
+      }
+
+      const branch = this.currentUser.branch || 'Computer Science & Engineering';
+      const semester = this.currentUser.semester || 'Semester I';
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          let query = supabase
+            .from('profiles')
+            .select('id, email, full_name, student_id, college, branch, semester, role, avatar_url, created_at')
+            .order('created_at', { ascending: false });
+
+          // If CR, strictly scope to own branch and semester
+          if (this.currentUser.role === 'CR') {
+            query = query.eq('branch', branch).eq('semester', semester);
+          }
+
+          const { data, error } = await query;
+          if (!error && Array.isArray(data)) {
+            return data.map(u => ({
+              id: u.id,
+              email: u.email,
+              fullName: u.full_name,
+              studentId: u.student_id || 'Not provided',
+              college: u.college || 'Not provided',
+              branch: u.branch || branch,
+              semester: u.semester || semester,
+              role: u.role || 'STUDENT',
+              avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+              createdAt: u.created_at
+            }));
+          }
+        } catch (err) {
+          console.warn('Supabase class members fetch warning:', err);
+        }
+      }
+
+      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
+      let filtered = users;
+      if (this.currentUser.role === 'CR') {
+        filtered = users.filter(u => u.branch === branch && u.semester === semester);
+      }
+      return filtered.map(u => ({
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName,
+        studentId: u.studentId || 'Not provided',
+        college: u.college || 'Not provided',
+        branch: u.branch || branch,
+        semester: u.semester || semester,
+        role: u.role || 'STUDENT',
+        avatarGradient: u.avatarGradient || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+        createdAt: u.createdAt || new Date().toISOString()
+      }));
+    }
+
+    async createClassAnnouncementAsync({ title, content, category, badgeType }) {
+      if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
+        throw new Error('Access Denied: Only a Class Representative or Admin can publish announcements.');
+      }
+
+      const branch = this.currentUser.branch || 'Computer Science & Engineering';
+      const semester = this.currentUser.semester || 'Semester I';
+
+      const newAnn = {
+        id: 'ann_class_' + Date.now(),
+        title: title.trim(),
+        content: content.trim(),
+        category: category || 'Classwork',
+        badgeType: badgeType || 'CLASS NOTICE',
+        authorId: this.currentUser.id,
+        authorName: `${this.currentUser.fullName} (Class Representative)`,
+        branch,
+        semester,
+        isClassScoped: true,
+        createdAt: new Date().toISOString()
+      };
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('announcements').insert([{
+            title: newAnn.title,
+            content: newAnn.content,
+            category: newAnn.category,
+            badge_type: newAnn.badgeType,
+            creator_id: this.currentUser.id,
+            author_name: newAnn.authorName
+          }]);
+        } catch (e) {
+          console.warn('Supabase class announcement insert warning:', e);
+        }
+      }
+
+      const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
+      anns.unshift(newAnn);
+      localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(anns));
+      return newAnn;
+    }
+
+    async getClassAnnouncementsAsync() {
+      const branch = this.currentUser ? (this.currentUser.branch || 'Computer Science & Engineering') : '';
+      const semester = this.currentUser ? (this.currentUser.semester || 'Semester I') : '';
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('announcements')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!error && Array.isArray(data)) {
+            return data.map(a => ({
+              id: a.id,
+              title: a.title,
+              content: a.content,
+              category: a.category,
+              badgeType: a.badge_type || 'CLASS NOTICE',
+              authorName: a.author_name || 'Class Representative',
+              createdAt: a.created_at
+            }));
+          }
+        } catch (e) {}
+      }
+
+      const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
+      if (this.currentUser && this.currentUser.role === 'CR') {
+        return anns.filter(a => !a.branch || (a.branch === branch && a.semester === semester));
+      }
+      return anns;
     }
 
     // ------------------------------------------------------------------------
@@ -1095,8 +1243,8 @@
         throw new Error('Access Denied: Only an existing ADMIN can change user roles.');
       }
 
-      if (!['STUDENT', 'MODERATOR', 'ADMIN'].includes(newRole)) {
-        throw new Error('Invalid role specified. Must be STUDENT, MODERATOR, or ADMIN.');
+      if (!['STUDENT', 'CR', 'MODERATOR', 'ADMIN'].includes(newRole)) {
+        throw new Error('Invalid role specified. Must be STUDENT, CR, MODERATOR, or ADMIN.');
       }
 
       const supabase = this.getSupabase();

@@ -219,6 +219,10 @@
             <i data-lucide="folder-up"></i>
             <span>My Uploads</span>
           </a>
+          <a href="#cr-panel" class="nav-item role-cr-or-admin-only" data-view="cr-panel" style="display: none;">
+            <i data-lucide="award"></i>
+            <span>CR Hub</span>
+          </a>
           <a href="#admin-panel" class="nav-item role-admin-only" data-view="admin-panel" style="display: none;">
             <i data-lucide="shield-alert"></i>
             <span>Admin</span>
@@ -268,6 +272,10 @@
             <a href="#progress" class="dropdown-item" data-view="progress">
               <i data-lucide="bar-chart-2"></i>
               <span>Syllabus Progress</span>
+            </a>
+            <a href="#cr-panel" class="dropdown-item role-cr-or-admin-only" data-view="cr-panel" style="display: none;">
+              <i data-lucide="award" class="text-indigo"></i>
+              <span>Class Representative</span>
             </a>
             <a href="#admin-panel" class="dropdown-item role-admin-only" data-view="admin-panel" style="display: none;">
               <i data-lucide="shield-alert" class="text-amber"></i>
@@ -756,7 +764,148 @@
         </div>
       </section>
 
-      <!-- VIEW 9: ADMIN & MODERATOR PANEL (Phases 43 & 44) -->
+      <!-- VIEW 9: CLASS REPRESENTATIVE HUB (CR-SCOPED) -->
+      <section class="app-view-section" id="view-cr-panel" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.3);">
+                <i data-lucide="award"></i> CLASS LEADERSHIP · CLASS REPRESENTATIVE (CR)
+              </span>
+              <h2 class="section-heading">Class Representative Hub</h2>
+              <p class="section-subtext" id="cr-class-scope-subtitle">Manage class announcements, coordinate class activities, and connect with your classmates.</p>
+            </div>
+            <div id="cr-class-badge" class="makaut-badge-pill" style="background: rgba(99, 102, 241, 0.12); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3);">
+              <i data-lucide="book-open"></i>
+              <span id="cr-class-badge-text">Assigned Class</span>
+            </div>
+          </div>
+
+          <!-- CR Class Metrics -->
+          <div class="dash-stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: #818cf8;"><i data-lucide="users"></i></div>
+              <div class="stat-info">
+                <span class="stat-label">Classmates Enrolled</span>
+                <h3 class="stat-value" id="cr-stat-students-count">0</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;"><i data-lucide="file-text"></i></div>
+              <div class="stat-info">
+                <span class="stat-label">Class Notes Shared</span>
+                <h3 class="stat-value" id="cr-stat-notes-count">0</h3>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #fbbf24;"><i data-lucide="megaphone"></i></div>
+              <div class="stat-info">
+                <span class="stat-label">Class Notices</span>
+                <h3 class="stat-value" id="cr-stat-announcements-count">0</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-grid-layout">
+            <!-- Post Class Announcement Form -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <div class="card-header-title">
+                  <i data-lucide="megaphone" class="text-primary"></i>
+                  <div>
+                    <h3>Post Class Announcement</h3>
+                    <p>Broadcast updates specifically to your classmates</p>
+                  </div>
+                </div>
+              </div>
+              <form class="modal-form" id="cr-announcement-form">
+                <div class="form-field">
+                  <label for="cr-ann-title" class="field-label">Notice Title <span class="required">*</span></label>
+                  <input type="text" id="cr-ann-title" required placeholder="e.g. CA-2 Continuous Assessment Revision Schedule" class="form-input">
+                </div>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label for="cr-ann-cat" class="field-label">Category</label>
+                    <select id="cr-ann-cat" class="form-select">
+                      <option value="Classwork">Classwork & Assignments</option>
+                      <option value="Exams">Continuous Assessment (CA)</option>
+                      <option value="Practical">Lab & Practical</option>
+                      <option value="General">General Class Notice</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="cr-ann-badge" class="field-label">Priority</label>
+                    <select id="cr-ann-badge" class="form-select">
+                      <option value="CLASS NOTICE">CLASS NOTICE</option>
+                      <option value="URGENT">URGENT</option>
+                      <option value="INFO">INFO</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="cr-ann-content" class="field-label">Notice Details <span class="required">*</span></label>
+                  <textarea id="cr-ann-content" required rows="3" placeholder="Provide instructions or updates for your class..." class="form-textarea"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="send"></i>
+                  <span>Publish Class Notice</span>
+                </button>
+              </form>
+            </div>
+
+            <!-- Class Announcements Feed -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <div class="card-header-title">
+                  <i data-lucide="bell" class="text-primary"></i>
+                  <div>
+                    <h3>Active Class Announcements</h3>
+                    <p>Recent notices published for your assigned class</p>
+                  </div>
+                </div>
+              </div>
+              <div class="announcements-feed" id="cr-announcements-list">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Class Members Directory -->
+          <div class="dash-card" style="margin-top: 1.5rem;">
+            <div class="dash-card-header">
+              <div class="card-header-title">
+                <i data-lucide="users" class="text-primary"></i>
+                <div>
+                  <h3>Class Member Directory</h3>
+                  <p>Verified student classmates enrolled in your department and semester</p>
+                </div>
+              </div>
+              <div class="input-with-icon" style="max-width: 280px;">
+                <i data-lucide="search"></i>
+                <input type="text" id="cr-member-search-input" placeholder="Search classmate..." class="form-input">
+              </div>
+            </div>
+            <div class="admin-users-table-box">
+              <table class="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Student Member</th>
+                    <th>Roll / Student ID</th>
+                    <th>College Institute</th>
+                    <th>Branch / Dept</th>
+                    <th>Role</th>
+                  </tr>
+                </thead>
+                <tbody id="cr-members-table-body">
+                  <!-- Dynamically populated via JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 10: ADMIN & MODERATOR PANEL (Phases 43 & 44) -->
       <section class="app-view-section" id="view-admin-panel" style="display: none;">
         <div class="container">
           <div class="section-title-bar">
@@ -841,7 +990,7 @@
                 <i data-lucide="users-round" class="text-primary"></i>
                 <div>
                   <h3>👥 Student & Faculty User Management</h3>
-                  <p>Search verified academic accounts and safely manage role permissions (STUDENT ⇄ MODERATOR ⇄ ADMIN).</p>
+                  <p>Search verified academic accounts and safely manage role permissions (STUDENT ⇄ CR ⇄ MODERATOR ⇄ ADMIN).</p>
                 </div>
               </div>
             </div>
@@ -855,9 +1004,10 @@
               <div style="min-width: 180px;">
                 <select id="admin-user-role-filter" class="form-select">
                   <option value="ALL">All Roles</option>
-                  <option value="STUDENT">Students Only</option>
+                  <option value="STUDENT">Students</option>
+                  <option value="CR">Class Representatives (CR)</option>
                   <option value="MODERATOR">Faculty Moderators</option>
-                  <option value="ADMIN">Academic Deans (Admin)</option>
+                  <option value="ADMIN">Admins</option>
                 </select>
               </div>
             </div>
@@ -1284,9 +1434,9 @@
   <!-- APPLICATION JAVASCRIPT MODULES (CACHE-BUSTED)                      -->
   <!-- ================================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="makaut-syllabus-data.js?v=20260901_V8_SECURE"></script>
-  <script src="supabase-client.js?v=20260901_V8_SECURE"></script>
-  <script src="auth-db-service.js?v=20260901_V8_SECURE"></script>
-  <script src="main.js?v=20260901_V8_SECURE"></script>
+  <script src="makaut-syllabus-data.js?v=20260901_V9_CR"></script>
+  <script src="supabase-client.js?v=20260901_V9_CR"></script>
+  <script src="auth-db-service.js?v=20260901_V9_CR"></script>
+  <script src="main.js?v=20260901_V9_CR"></script>
 </body>
 </html>

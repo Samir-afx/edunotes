@@ -1997,6 +1997,12 @@ button, input, select, textarea { font-family: inherit; border: none; outline: n
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.role-badge-cr {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
 .role-badge-mod {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;

@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     branch TEXT NOT NULL DEFAULT 'Computer Science & Engineering',
     semester TEXT NOT NULL DEFAULT 'Semester I',
     academic_year TEXT NOT NULL DEFAULT '2026-2027',
-    role TEXT NOT NULL DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'MODERATOR', 'ADMIN')),
+    role TEXT NOT NULL DEFAULT 'STUDENT' CHECK (role IN ('STUDENT', 'CR', 'MODERATOR', 'ADMIN')),
     avatar_url TEXT,
     bio TEXT,
-    karma_points INT DEFAULT 100,
+    karma_points INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -39,7 +39,7 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'college', 'MAKAUT Affiliated Institute'),
     COALESCE(new.raw_user_meta_data->>'branch', 'Computer Science & Engineering'),
     COALESCE(new.raw_user_meta_data->>'semester', 'Semester I'),
-    'STUDENT' -- ALWAYS default to STUDENT (cannot self-select ADMIN/MODERATOR)
+    'STUDENT' -- ALWAYS default to STUDENT (cannot self-select ADMIN/CR/MODERATOR)
   );
   RETURN NEW;
 END;
@@ -63,6 +63,48 @@ BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.profiles 
     WHERE id = user_id AND role = 'ADMIN'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+
+-- Helper to check if a user is a CLASS REPRESENTATIVE (CR)
+CREATE OR REPLACE FUNCTION public.is_cr(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF user_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role = 'CR'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+
+-- Helper to check if a user is MODERATOR or ADMIN
+CREATE OR REPLACE FUNCTION public.is_moderator_or_admin(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF user_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role IN ('MODERATOR', 'ADMIN')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+
+-- Helper to check if a user is CR or ADMIN
+CREATE OR REPLACE FUNCTION public.is_cr_or_admin(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF user_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role IN ('CR', 'ADMIN')
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
@@ -108,8 +150,8 @@ BEGIN
   END IF;
 
   -- Validate role
-  IF new_role NOT IN ('STUDENT', 'MODERATOR', 'ADMIN') THEN
-    RAISE EXCEPTION 'Invalid role specified. Must be STUDENT, MODERATOR, or ADMIN.';
+  IF new_role NOT IN ('STUDENT', 'CR', 'MODERATOR', 'ADMIN') THEN
+    RAISE EXCEPTION 'Invalid role specified. Must be STUDENT, CR, MODERATOR, or ADMIN.';
   END IF;
 
   -- Check if target is primary admin
@@ -402,18 +444,20 @@ CREATE POLICY "Users can ask questions" ON public.questions FOR INSERT TO authen
 CREATE POLICY "Answers viewable by all" ON public.answers FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can answer questions" ON public.answers FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- Chat: Read all, post own
+-- Chat: Read all, post own, CR and Admin can delete/moderate
 CREATE POLICY "Chat viewable by all" ON public.chat_messages FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can post chat messages" ON public.chat_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own messages or CR/Admin can moderate" ON public.chat_messages FOR DELETE TO authenticated
+USING (auth.uid() = user_id OR public.is_cr_or_admin(auth.uid()));
 
--- Announcements & Calendar: Read all, Admin manage
+-- Announcements & Calendar: Read all, Admin & CR manage
 CREATE POLICY "Announcements viewable by all" ON public.announcements FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Admin can manage announcements" ON public.announcements FOR ALL TO authenticated 
-USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'ADMIN'));
+CREATE POLICY "Admin and CR can manage announcements" ON public.announcements FOR ALL TO authenticated 
+USING (public.is_admin(auth.uid()) OR (public.is_cr(auth.uid()) AND creator_id = auth.uid()));
 
 CREATE POLICY "Calendar viewable by all" ON public.calendar_events FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Admin can manage calendar" ON public.calendar_events FOR ALL TO authenticated 
-USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('ADMIN', 'MODERATOR')));
+USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('ADMIN', 'MODERATOR', 'CR')));
 
 -- Reports: Users can create, Admin/Moderator can manage
 CREATE POLICY "Users can create reports" ON public.reports FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
