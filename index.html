@@ -273,10 +273,6 @@
               <i data-lucide="shield-alert" class="text-amber"></i>
               <span>Admin Panel</span>
             </a>
-            <button type="button" class="dropdown-item" id="btn-open-supabase-config">
-              <i data-lucide="database" class="text-primary"></i>
-              <span>Supabase Backend Config</span>
-            </button>
             <div class="dropdown-divider"></div>
             <button type="button" class="dropdown-item text-danger" id="btn-user-logout">
               <i data-lucide="log-out"></i>
@@ -1281,40 +1277,6 @@
     </div>
   </div>
 
-  <!-- MODAL 9: SUPABASE BACKEND CONFIGURATION MODAL -->
-  <div class="modal-backdrop" id="modal-supabase-config-backdrop">
-    <div class="modal-card modal-md">
-      <div class="modal-header">
-        <div class="modal-badge"><i data-lucide="database"></i> Production Database</div>
-        <h2 class="modal-title">Supabase Backend Settings</h2>
-        <button class="modal-close-icon" id="close-supabase-config-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
-      </div>
-      <form class="modal-form" id="form-supabase-config">
-        <p style="font-size: 0.85rem; color: var(--text-muted);">
-          Connect your live Supabase project to enable real-time PostgreSQL database synchronization, Auth, and Storage.
-        </p>
-        <div class="form-field">
-          <label for="cfg-supabase-url" class="field-label">Supabase Project URL</label>
-          <input type="url" id="cfg-supabase-url" placeholder="https://your-project.supabase.co" class="form-input">
-        </div>
-        <div class="form-field">
-          <label for="cfg-supabase-key" class="field-label">Supabase Anon Public API Key</label>
-          <input type="text" id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="form-input">
-        </div>
-        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 0.8rem; border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-muted);">
-          <strong style="color: var(--accent-emerald);">Current Status:</strong> <span id="supabase-status-indicator">Checking connection...</span>
-        </div>
-        <div class="modal-footer" style="margin-top: 0.8rem;">
-          <button type="button" class="btn btn-outline" id="btn-cancel-supabase-config">Close</button>
-          <button type="submit" class="btn btn-primary" id="btn-save-supabase-config">
-            <i data-lucide="save"></i>
-            <span>Save & Connect Backend</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
@@ -1322,9 +1284,9 @@
   <!-- APPLICATION JAVASCRIPT MODULES (CACHE-BUSTED)                      -->
   <!-- ================================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="makaut-syllabus-data.js?v=20260901_V7_PROD"></script>
-  <script src="supabase-client.js?v=20260901_V7_PROD"></script>
-  <script src="auth-db-service.js?v=20260901_V7_PROD"></script>
-  <script src="main.js?v=20260901_V7_PROD"></script>
+  <script src="makaut-syllabus-data.js?v=20260901_V8_SECURE"></script>
+  <script src="supabase-client.js?v=20260901_V8_SECURE"></script>
+  <script src="auth-db-service.js?v=20260901_V8_SECURE"></script>
+  <script src="main.js?v=20260901_V8_SECURE"></script>
 </body>
 </html>

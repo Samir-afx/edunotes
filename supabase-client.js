@@ -9,12 +9,12 @@
   'use strict';
 
   // Environment / Runtime Configuration
-  // Checks window.ENV, global variables, or runtime settings
+  // Reads from deployment environment or global window config
   const getSupabaseConfig = () => {
     const env = window.ENV || {};
     return {
-      url: env.SUPABASE_URL || window.NEXT_PUBLIC_SUPABASE_URL || localStorage.getItem('EDUNOTES_SUPABASE_URL') || '',
-      anonKey: env.SUPABASE_ANON_KEY || window.NEXT_PUBLIC_SUPABASE_ANON_KEY || localStorage.getItem('EDUNOTES_SUPABASE_KEY') || ''
+      url: env.SUPABASE_URL || window.NEXT_PUBLIC_SUPABASE_URL || window.SUPABASE_URL || '',
+      anonKey: env.SUPABASE_ANON_KEY || window.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ''
     };
   };
 
@@ -43,15 +43,7 @@
 
   window.EduNotesSupabase = {
     getClient: () => supabaseClient,
-    isConfigured: () => Boolean(supabaseClient),
-    reconfigure: (url, anonKey) => {
-      if (url && anonKey) {
-        localStorage.setItem('EDUNOTES_SUPABASE_URL', url);
-        localStorage.setItem('EDUNOTES_SUPABASE_KEY', anonKey);
-      }
-      initSupabase();
-      return Boolean(supabaseClient);
-    }
+    isConfigured: () => Boolean(supabaseClient)
   };
 
   initSupabase();

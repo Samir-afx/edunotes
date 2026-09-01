@@ -22,7 +22,7 @@
   const STORAGE_DEV_RATINGS = 'edunotes_ratings_v6';
   const STORAGE_DEV_REPORTS = 'edunotes_reports_v6';
 
-  // AGGRESSIVELY PURGE ALL LEGACY MOCK/SEED DATA KEYS FROM LOCALSTORAGE
+  // AGGRESSIVELY PURGE ALL LEGACY MOCK/SEED DATA & OVERRIDE KEYS FROM LOCALSTORAGE
   try {
     const keysToPurge = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -39,11 +39,11 @@
         key.includes('_v2') ||
         key.includes('_v3') ||
         key.includes('_v4') ||
-        key.includes('_v5')
+        key.includes('_v5') ||
+        key === 'EDUNOTES_SUPABASE_URL' ||
+        key === 'EDUNOTES_SUPABASE_KEY'
       )) {
-        if (key !== 'EDUNOTES_SUPABASE_URL' && key !== 'EDUNOTES_SUPABASE_KEY') {
-          keysToPurge.push(key);
-        }
+        keysToPurge.push(key);
       }
     }
     keysToPurge.forEach(k => localStorage.removeItem(k));
