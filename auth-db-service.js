@@ -9,18 +9,45 @@
 (function () {
   'use strict';
 
-  // Storage Keys for Dev Session
-  const STORAGE_SESSION = 'edunotes_auth_session_v5';
-  const STORAGE_DEV_USERS = 'edunotes_dev_users_v5';
-  const STORAGE_DEV_NOTES = 'edunotes_dev_notes_v5';
-  const STORAGE_DEV_ANNOUNCEMENTS = 'edunotes_dev_announcements_v5';
-  const STORAGE_DEV_QUESTIONS = 'edunotes_dev_questions_v5';
-  const STORAGE_DEV_CHAT = 'edunotes_dev_chat_v5';
-  const STORAGE_DEV_CALENDAR = 'edunotes_dev_calendar_v5';
-  const STORAGE_DEV_BOOKMARKS = 'edunotes_dev_bookmarks_v5';
-  const STORAGE_DEV_PROGRESS = 'edunotes_dev_progress_v5';
-  const STORAGE_DEV_RATINGS = 'edunotes_dev_ratings_v5';
-  const STORAGE_DEV_REPORTS = 'edunotes_dev_reports_v5';
+  // Storage Keys for Clean Real Sessions (v6)
+  const STORAGE_SESSION = 'edunotes_auth_session_v6';
+  const STORAGE_DEV_USERS = 'edunotes_users_v6';
+  const STORAGE_DEV_NOTES = 'edunotes_notes_v6';
+  const STORAGE_DEV_ANNOUNCEMENTS = 'edunotes_announcements_v6';
+  const STORAGE_DEV_QUESTIONS = 'edunotes_questions_v6';
+  const STORAGE_DEV_CHAT = 'edunotes_chat_v6';
+  const STORAGE_DEV_CALENDAR = 'edunotes_calendar_v6';
+  const STORAGE_DEV_BOOKMARKS = 'edunotes_bookmarks_v6';
+  const STORAGE_DEV_PROGRESS = 'edunotes_progress_v6';
+  const STORAGE_DEV_RATINGS = 'edunotes_ratings_v6';
+  const STORAGE_DEV_REPORTS = 'edunotes_reports_v6';
+
+  // AGGRESSIVELY PURGE ALL LEGACY MOCK/SEED DATA KEYS FROM LOCALSTORAGE
+  try {
+    const keysToPurge = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.includes('dev_users') ||
+        key.includes('dev_notes') ||
+        key.includes('dev_announcements') ||
+        key.includes('dev_questions') ||
+        key.includes('demo') ||
+        key.includes('mock') ||
+        key.includes('sample') ||
+        key.includes('_v1') ||
+        key.includes('_v2') ||
+        key.includes('_v3') ||
+        key.includes('_v4') ||
+        key.includes('_v5')
+      )) {
+        if (key !== 'EDUNOTES_SUPABASE_URL' && key !== 'EDUNOTES_SUPABASE_KEY') {
+          keysToPurge.push(key);
+        }
+      }
+    }
+    keysToPurge.forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
 
   // In-memory / session Binary Blob storage for local offline file integrity
   const fileBlobsMap = new Map();
@@ -97,38 +124,6 @@
       if (!localStorage.getItem(STORAGE_DEV_REPORTS)) {
         localStorage.setItem(STORAGE_DEV_REPORTS, JSON.stringify([]));
       }
-
-      // Purge any legacy fake/seed users, mock notes, and mock announcements from localStorage
-      try {
-        const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-        const cleanedUsers = users.filter(u => {
-          const email = (u.email || '').toLowerCase();
-          return email !== 'dushyant.yadav@gmail.com' &&
-                 email !== 'rahul.sharma@makaut.edu' &&
-                 email !== 'priya.mukherjee@makaut.edu' &&
-                 !u.id?.startsWith('usr_student_');
-        });
-        if (cleanedUsers.length !== users.length) {
-          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(cleanedUsers));
-        }
-
-        const notes = JSON.parse(localStorage.getItem(STORAGE_DEV_NOTES) || '[]');
-        const cleanedNotes = notes.filter(n => {
-          const id = n.id || '';
-          return id !== 'note_makaut_m101_sample' &&
-                 id !== 'note_makaut_ph101_sample' &&
-                 id !== 'note_makaut_ee101_sample';
-        });
-        if (cleanedNotes.length !== notes.length) {
-          localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(cleanedNotes));
-        }
-
-        const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
-        const cleanedAnns = anns.filter(a => a.id !== 'ann_1' && a.id !== 'ann_2');
-        if (cleanedAnns.length !== anns.length) {
-          localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(cleanedAnns));
-        }
-      } catch (e) {}
 
       // Ensure active primary admin sayangorai298@gmail.com is ADMIN
       if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === 'sayangorai298@gmail.com') {
@@ -1075,6 +1070,23 @@
       }
 
       const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
+      if (users.length === 0 && this.currentUser) {
+        return [{
+          id: this.currentUser.id,
+          email: this.currentUser.email,
+          fullName: this.currentUser.fullName || 'Samir Gorai',
+          studentId: this.currentUser.studentId || 'Not provided',
+          college: this.currentUser.college || 'Not provided',
+          branch: this.currentUser.branch || 'Computer Science & Engineering',
+          semester: this.currentUser.semester || 'Semester I',
+          academicYear: this.currentUser.academicYear || '2026-2027',
+          role: this.currentUser.role || 'ADMIN',
+          avatarGradient: this.currentUser.avatarGradient || 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+          karmaPoints: this.currentUser.karmaPoints || 0,
+          createdAt: new Date().toISOString()
+        }];
+      }
+
       return users.map(u => {
         const safeUser = { ...u };
         delete safeUser.passwordHash;
