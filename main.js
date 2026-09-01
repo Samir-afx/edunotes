@@ -319,9 +319,17 @@ document.addEventListener('DOMContentLoaded', () => {
           submitBtn.innerHTML = '<span>Creating Account...</span>';
         }
 
-        const user = await authDb.signup({ fullName, studentId, email, college, semester, password });
-        showToast(`🎉 Account created! Welcome, ${user.fullName}.`);
-        checkAuthAndRoute();
+        const result = await authDb.signup({ fullName, studentId, email, college, semester, password });
+        if (result && result.requiresEmailConfirmation) {
+          showToast(`✉️ Account created! Please check your email to verify before logging in.`);
+          const tabLogin = document.getElementById('tab-login-btn');
+          if (tabLogin) tabLogin.click();
+          const loginEmail = document.getElementById('login-email');
+          if (loginEmail) loginEmail.value = email;
+        } else {
+          showToast(`🎉 Account created! Welcome, ${result.fullName}.`);
+          checkAuthAndRoute();
+        }
       } catch (err) {
         errBox.textContent = err.message;
         errBox.style.display = 'block';
@@ -456,15 +464,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Announcements
     if (annList) {
-      const announcements = authDb.getAnnouncements().slice(0, 3);
-      if (announcements.length === 0) {
+      const announcements = await authDb.getAnnouncementsAsync();
+      const annSlice = announcements.slice(0, 3);
+      if (annSlice.length === 0) {
         annList.innerHTML = `
           <div style="padding: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.88rem;">
             <p>No announcements broadcasted yet.</p>
           </div>
         `;
       } else {
-        annList.innerHTML = announcements.map(ann => `
+        annList.innerHTML = annSlice.map(ann => `
           <div class="announcement-card ${ann.category === 'MAKAUT' ? 'makaut' : (ann.badgeType === 'URGENT' ? 'urgent' : '')}">
             <div class="ann-header">
               <span class="ann-tag">${escapeHTML(ann.badgeType)} · ${escapeHTML(ann.category)}</span>
@@ -479,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Calendar
     if (calList) {
-      const events = authDb.getCalendarEvents();
+      const events = await authDb.getCalendarEventsAsync();
       if (events.length === 0) {
         calList.innerHTML = `
           <div style="padding: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.88rem;">
@@ -507,16 +516,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    calculateOverallProgress();
+    await calculateOverallProgress();
 
     if (window.lucide) lucide.createIcons();
     attachNoteActionListeners();
   }
 
-  function calculateOverallProgress() {
+  async function calculateOverallProgress() {
     const user = authDb.getCurrentUser();
     if (!user) return;
-    const progress = authDb.getUserProgress();
+    const progress = await authDb.getUserProgressAsync();
     const sem1Courses = syllabusData.semester1;
 
     let totalTopics = 0;
@@ -1458,66 +1467,75 @@ document.addEventListener('DOMContentLoaded', () => {
   // --------------------------------------------------------------------------
   // 11. COMMUNITY CHAT
   // --------------------------------------------------------------------------
-  function renderChatView() {
+  async function renderChatView() {
     const messagesBody = document.getElementById('chat-messages-body');
     const channelTitle = document.getElementById('active-channel-title');
     if (!messagesBody) return;
 
     if (channelTitle) channelTitle.textContent = `# ${activeChatChannel}`;
-    const messages = authDb.getChatMessages(activeChatChannel);
+    const messages = await authDb.getChatMessagesAsync(activeChatChannel);
 
-    messagesBody.innerHTML = messages.map(msg => `
-      <div class="chat-message-row">
-        <div class="msg-avatar" style="background: ${msg.userAvatar || 'linear-gradient(135deg, #3b82f6, #06b6d4)'}">
-          ${msg.userName ? msg.userName.slice(0, 2) : 'ST'}
-        </div>
-        <div class="msg-content">
-          <div class="msg-header">
-            <span class="msg-author">${escapeHTML(msg.userName)}</span>
-            <span class="msg-time">${window.formatTimeAgo ? window.formatTimeAgo(msg.createdAt) : ''}</span>
+    if (messages.length === 0) {
+      messagesBody.innerHTML = `<div style="padding: 3rem; text-align: center; color: var(--text-dim);"><p>No messages in #${escapeHTML(activeChatChannel)} yet. Start the conversation!</p></div>`;
+    } else {
+      messagesBody.innerHTML = messages.map(msg => `
+        <div class="chat-message-row">
+          <div class="msg-avatar" style="background: ${msg.userAvatar || 'linear-gradient(135deg, #3b82f6, #06b6d4)'}">
+            ${msg.userName ? msg.userName.slice(0, 2) : 'ST'}
           </div>
-          <div class="msg-bubble">${escapeHTML(msg.text)}</div>
+          <div class="msg-content">
+            <div class="msg-header">
+              <span class="msg-author">${escapeHTML(msg.userName)}</span>
+              <span class="role-badge ${msg.userRole === 'ADMIN' ? 'role-badge-admin' : (msg.userRole === 'CR' ? 'role-badge-cr' : 'role-badge-student')}" style="font-size: 0.68rem; margin-left: 0.3rem;">${msg.userRole === 'CR' ? 'CLASS REPRESENTATIVE' : msg.userRole}</span>
+              <span class="msg-time">${window.formatTimeAgo ? window.formatTimeAgo(msg.createdAt) : ''}</span>
+            </div>
+            <div class="msg-bubble">${escapeHTML(msg.text)}</div>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+    }
 
     messagesBody.scrollTop = messagesBody.scrollHeight;
   }
 
   // Channel switcher
   document.querySelectorAll('.channel-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeChatChannel = btn.getAttribute('data-channel');
-      renderChatView();
+      await renderChatView();
     });
   });
 
   // Send Message
   const chatForm = document.getElementById('chat-send-form');
   if (chatForm) {
-    chatForm.addEventListener('submit', (e) => {
+    chatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const input = document.getElementById('chat-text-input');
       const text = input.value.trim();
       if (!text) return;
 
-      authDb.sendChatMessage(activeChatChannel, text);
-      input.value = '';
-      renderChatView();
+      try {
+        await authDb.sendChatMessageAsync(activeChatChannel, text);
+        input.value = '';
+        await renderChatView();
+      } catch (err) {
+        showToast(`Chat error: ${err.message}`);
+      }
     });
   }
 
   // --------------------------------------------------------------------------
   // 12. PERSONAL PROGRESS TRACKER
   // --------------------------------------------------------------------------
-  function renderProgressView() {
+  async function renderProgressView() {
     const grid = document.getElementById('progress-subjects-grid');
     if (!grid) return;
 
     const sem1Courses = syllabusData.semester1.filter(c => c.modules);
-    const userProg = authDb.getUserProgress();
+    const userProg = await authDb.getUserProgressAsync();
 
     grid.innerHTML = sem1Courses.map(course => {
       let allTopics = [];
@@ -1555,12 +1573,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
 
     document.querySelectorAll('.topic-chk').forEach(chk => {
-      chk.addEventListener('change', () => {
+      chk.addEventListener('change', async () => {
         const cid = chk.getAttribute('data-cid');
         const topic = chk.getAttribute('data-topic');
-        const isDone = authDb.toggleTopicProgress(cid, topic);
-        showToast(isDone ? '✓ Topic marked as completed (+10 Karma)!' : 'Topic marked as incomplete.');
-        renderProgressView();
+        try {
+          const isDone = await authDb.toggleTopicProgressAsync(cid, topic);
+          showToast(isDone ? '✓ Topic marked as completed (+10 Karma)!' : 'Topic marked as incomplete.');
+          await renderProgressView();
+        } catch (e) {
+          showToast('Failed to update progress.');
+        }
       });
     });
   }
@@ -1572,7 +1594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = document.getElementById('bookmarks-notes-grid');
     if (!grid) return;
 
-    const bms = authDb.getUserBookmarks();
+    const bms = await authDb.getUserBookmarksAsync();
     if (bms.length === 0) {
       grid.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; background: var(--bg-card); border-radius: var(--radius-lg);">
@@ -1979,17 +2001,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Admin Broadcast Announcement
   const broadcastForm = document.getElementById('admin-broadcast-form');
   if (broadcastForm) {
-    broadcastForm.addEventListener('submit', (e) => {
+    broadcastForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const title = document.getElementById('admin-ann-title').value.trim();
       const cat = document.getElementById('admin-ann-cat').value;
       const badge = document.getElementById('admin-ann-badge').value;
       const content = document.getElementById('admin-ann-content').value.trim();
 
-      authDb.addAnnouncement(title, cat, content, badge);
-      broadcastForm.reset();
-      showToast('📢 Official Announcement broadcasted to all students.');
-      renderDashboardView();
+      try {
+        await authDb.addAnnouncementAsync(title, cat, content, badge);
+        broadcastForm.reset();
+        showToast('📢 Official Announcement broadcasted to all students.');
+        await renderDashboardView();
+      } catch (err) {
+        showToast(`Announcement error: ${err.message}`);
+      }
     });
   }
 

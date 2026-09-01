@@ -34,16 +34,20 @@ BEGIN
   VALUES (
     new.id,
     new.email,
-    COALESCE(new.raw_user_meta_data->>'full_name', 'MAKAUT Student'),
+    COALESCE(new.raw_user_meta_data->>'full_name', CASE WHEN lower(new.email) = 'sayangorai298@gmail.com' THEN 'Samir Gorai' ELSE 'MAKAUT Student' END),
     COALESCE(new.raw_user_meta_data->>'student_id', 'MAK-' || substring(new.id::text, 1, 8)),
     COALESCE(new.raw_user_meta_data->>'college', 'MAKAUT Affiliated Institute'),
     COALESCE(new.raw_user_meta_data->>'branch', 'Computer Science & Engineering'),
     COALESCE(new.raw_user_meta_data->>'semester', 'Semester I'),
-    'STUDENT' -- ALWAYS default to STUDENT (cannot self-select ADMIN/CR/MODERATOR)
-  );
+    CASE WHEN lower(new.email) = 'sayangorai298@gmail.com' THEN 'ADMIN' ELSE 'STUDENT' END
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email,
+      full_name = EXCLUDED.full_name,
+      updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
@@ -351,11 +355,14 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.announcements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    creator_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     category TEXT NOT NULL CHECK (category IN ('MAKAUT', 'College', 'Exams', 'Assignments', 'Practical', 'Events', 'Internship', 'Placement')),
     author_name TEXT NOT NULL,
     content TEXT NOT NULL,
     badge_type TEXT DEFAULT 'OFFICIAL',
+    branch TEXT,
+    semester TEXT,
     is_pinned BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

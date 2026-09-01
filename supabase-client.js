@@ -8,13 +8,16 @@
 (function () {
   'use strict';
 
+  // Production Supabase Backend Configuration
+  const DEFAULT_SUPABASE_URL = 'https://gmprqkoamjoxxcgzdmme.supabase.co';
+  const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_4zdfrcpjz1I7GNYFWrsuSw_CQPikPUw';
+
   // Environment / Runtime Configuration
-  // Reads from deployment environment or global window config
   const getSupabaseConfig = () => {
     const env = window.ENV || {};
     return {
-      url: env.SUPABASE_URL || window.NEXT_PUBLIC_SUPABASE_URL || window.SUPABASE_URL || '',
-      anonKey: env.SUPABASE_ANON_KEY || window.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || ''
+      url: env.SUPABASE_URL || window.NEXT_PUBLIC_SUPABASE_URL || window.SUPABASE_URL || DEFAULT_SUPABASE_URL,
+      anonKey: env.SUPABASE_ANON_KEY || window.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
     };
   };
 

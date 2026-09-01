@@ -1,49 +1,28 @@
 /**
  * ============================================================================
- * EDUNOTES — AUTHENTICATION & MULTI-USER DATABASE SERVICE
- * Enterprise-grade client service supporting Supabase REST/PostgreSQL/Auth/Storage
- * with binary file preservation, collision-free storage, and zero hardcoded credentials.
+ * EDUNOTES — AUTHENTICATION & MULTI-USER DATABASE SERVICE (SUPABASE PRODUCTION)
+ * Connects directly to Supabase Auth, PostgreSQL, Storage, and Realtime.
+ * Strictly zero local mock/fallback user database.
  * ============================================================================
  */
 
 (function () {
   'use strict';
 
-  // Storage Keys for Clean Real Sessions (v6)
-  const STORAGE_SESSION = 'edunotes_auth_session_v6';
-  const STORAGE_DEV_USERS = 'edunotes_users_v6';
-  const STORAGE_DEV_NOTES = 'edunotes_notes_v6';
-  const STORAGE_DEV_ANNOUNCEMENTS = 'edunotes_announcements_v6';
-  const STORAGE_DEV_QUESTIONS = 'edunotes_questions_v6';
-  const STORAGE_DEV_CHAT = 'edunotes_chat_v6';
-  const STORAGE_DEV_CALENDAR = 'edunotes_calendar_v6';
-  const STORAGE_DEV_BOOKMARKS = 'edunotes_bookmarks_v6';
-  const STORAGE_DEV_PROGRESS = 'edunotes_progress_v6';
-  const STORAGE_DEV_RATINGS = 'edunotes_ratings_v6';
-  const STORAGE_DEV_REPORTS = 'edunotes_reports_v6';
-  const STORAGE_DEV_SYLLABUS_VERSIONS = 'edunotes_syllabus_versions_v6';
-  const STORAGE_DEV_SYLLABUS_AUDIT = 'edunotes_syllabus_audit_v6';
+  // Storage Key for Client Session Persistence Only
+  const STORAGE_SESSION = 'edunotes_auth_session_v7';
 
-  // AGGRESSIVELY PURGE ALL LEGACY MOCK/SEED DATA & OVERRIDE KEYS FROM LOCALSTORAGE
+  // Aggressively clear any legacy mock user data from localStorage
   try {
     const keysToPurge = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (
         key.includes('dev_users') ||
-        key.includes('dev_notes') ||
-        key.includes('dev_announcements') ||
-        key.includes('dev_questions') ||
+        key.includes('edunotes_users') ||
         key.includes('demo') ||
         key.includes('mock') ||
-        key.includes('sample') ||
-        key.includes('_v1') ||
-        key.includes('_v2') ||
-        key.includes('_v3') ||
-        key.includes('_v4') ||
-        key.includes('_v5') ||
-        key === 'EDUNOTES_SUPABASE_URL' ||
-        key === 'EDUNOTES_SUPABASE_KEY'
+        key.includes('sample')
       )) {
         keysToPurge.push(key);
       }
@@ -51,13 +30,9 @@
     keysToPurge.forEach(k => localStorage.removeItem(k));
   } catch (e) {}
 
-  // In-memory / session Binary Blob storage for local offline file integrity
-  const fileBlobsMap = new Map();
-
   class AuthDbService {
     constructor() {
       this.currentUser = this.loadLocalSession();
-      this.initDevStorage();
       this.initSupabaseListener();
     }
 
@@ -95,45 +70,6 @@
       }
     }
 
-    initDevStorage() {
-      if (!localStorage.getItem(STORAGE_DEV_USERS)) {
-        localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_NOTES)) {
-        localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS)) {
-        localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_QUESTIONS)) {
-        localStorage.setItem(STORAGE_DEV_QUESTIONS, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_CHAT)) {
-        localStorage.setItem(STORAGE_DEV_CHAT, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_CALENDAR)) {
-        localStorage.setItem(STORAGE_DEV_CALENDAR, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_BOOKMARKS)) {
-        localStorage.setItem(STORAGE_DEV_BOOKMARKS, JSON.stringify({}));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_PROGRESS)) {
-        localStorage.setItem(STORAGE_DEV_PROGRESS, JSON.stringify({}));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_RATINGS)) {
-        localStorage.setItem(STORAGE_DEV_RATINGS, JSON.stringify({}));
-      }
-      if (!localStorage.getItem(STORAGE_DEV_REPORTS)) {
-        localStorage.setItem(STORAGE_DEV_REPORTS, JSON.stringify([]));
-      }
-
-      // Ensure active primary admin sayangorai298@gmail.com is ADMIN
-      if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === 'sayangorai298@gmail.com') {
-        this.currentUser.role = 'ADMIN';
-        this.saveLocalSession(this.currentUser);
-      }
-    }
-
     async initSupabaseListener() {
       const supabase = this.getSupabase();
       if (!supabase) return;
@@ -141,58 +77,85 @@
       try {
         const { data } = await supabase.auth.getSession();
         if (data && data.session && data.session.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.session.user.id)
-            .single();
-
-          if (profile) {
-            this.saveLocalSession({
-              id: profile.id,
-              email: profile.email,
-              fullName: profile.full_name,
-              studentId: profile.student_id,
-              college: profile.college,
-              branch: profile.branch,
-              semester: profile.semester,
-              academicYear: profile.academic_year,
-              role: profile.role || 'STUDENT',
-              avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-              karmaPoints: profile.karma_points || 100
-            });
-          }
+          await this.syncSessionUser(data.session.user);
         }
 
         supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_OUT' || !session) {
             this.saveLocalSession(null);
           } else if (session && session.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (profile) {
-              this.saveLocalSession({
-                id: profile.id,
-                email: profile.email,
-                fullName: profile.full_name,
-                studentId: profile.student_id,
-                college: profile.college,
-                branch: profile.branch,
-                semester: profile.semester,
-                academicYear: profile.academic_year,
-                role: profile.role || 'STUDENT',
-                avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-                karmaPoints: profile.karma_points || 100
-              });
-            }
+            await this.syncSessionUser(session.user);
           }
         });
       } catch (err) {
-        console.warn('Supabase session initialization warning:', err);
+        console.warn('Supabase session listener notice:', err);
+      }
+    }
+
+    async syncSessionUser(authUser) {
+      const supabase = this.getSupabase();
+      if (!supabase || !authUser) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        const cleanEmail = authUser.email.toLowerCase();
+        const isSayang = cleanEmail === 'sayangorai298@gmail.com';
+
+        if (profile) {
+          const syncedUser = {
+            id: profile.id,
+            email: profile.email,
+            fullName: profile.full_name,
+            studentId: profile.student_id || 'Not provided',
+            college: profile.college || 'Not provided',
+            branch: profile.branch || 'Computer Science & Engineering',
+            semester: profile.semester || 'Semester I',
+            academicYear: profile.academic_year || '2026-2027',
+            role: isSayang ? 'ADMIN' : (profile.role || 'STUDENT'),
+            avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            bio: profile.bio || '',
+            karmaPoints: profile.karma_points || 0
+          };
+          this.saveLocalSession(syncedUser);
+        } else {
+          // Auto-upsert profile for newly authenticated user
+          const meta = authUser.user_metadata || {};
+          const fallbackUser = {
+            id: authUser.id,
+            email: cleanEmail,
+            full_name: meta.full_name || (isSayang ? 'Samir Gorai' : 'MAKAUT Student'),
+            student_id: meta.student_id || ('MAK-' + authUser.id.slice(0, 8)),
+            college: meta.college || 'MAKAUT Affiliated Institute',
+            branch: meta.branch || 'Computer Science & Engineering',
+            semester: meta.semester || 'Semester I',
+            role: isSayang ? 'ADMIN' : 'STUDENT'
+          };
+
+          try {
+            await supabase.from('profiles').upsert([fallbackUser], { onConflict: 'id' });
+          } catch (e) {}
+
+          this.saveLocalSession({
+            id: fallbackUser.id,
+            email: fallbackUser.email,
+            fullName: fallbackUser.full_name,
+            studentId: fallbackUser.student_id,
+            college: fallbackUser.college,
+            branch: fallbackUser.branch,
+            semester: fallbackUser.semester,
+            academicYear: '2026-2027',
+            role: fallbackUser.role,
+            avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            karmaPoints: 0
+          });
+        }
+      } catch (err) {
+        console.warn('Error syncing session user:', err);
       }
     }
 
@@ -205,108 +168,88 @@
     }
 
     // ------------------------------------------------------------------------
-    // AUTHENTICATION: LOGIN, SIGNUP, FORGOT, LOGOUT
+    // AUTHENTICATION: LOGIN, SIGNUP, LOGOUT
     // ------------------------------------------------------------------------
     async login(email, password) {
       const cleanEmail = email.toLowerCase().trim();
       const supabase = this.getSupabase();
 
-      if (supabase) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: password
-        });
+      if (!supabase) {
+        throw new Error('Database Connection Error: Supabase backend is not initialized. Please verify your network.');
+      }
 
-        if (error) throw new Error(error.message);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+      });
 
-        // Fetch user profile from Supabase profiles table
-        const { data: profile, error: profileErr } = await supabase
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data || !data.user) {
+        throw new Error('Authentication Error: No user returned from Supabase Auth.');
+      }
+
+      // Fetch user profile from Supabase profiles table
+      let profile = null;
+      try {
+        const { data: prof, error: profErr } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileErr || !profile) {
-          const meta = data.user.user_metadata || {};
-          const isSayang = cleanEmail === 'sayangorai298@gmail.com';
-          const fallbackUser = {
-            id: data.user.id,
-            email: data.user.email,
-            fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
-            studentId: meta.student_id || 'Not provided',
-            college: meta.college || 'Not provided',
-            branch: meta.branch || 'Computer Science & Engineering',
-            semester: meta.semester || 'Semester I',
-            role: isSayang ? 'ADMIN' : 'STUDENT',
-            avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-            karmaPoints: 0
-          };
-          this.saveLocalSession(fallbackUser);
-          return fallbackUser;
+        if (!profErr && prof) {
+          profile = prof;
         }
-
-        const isSayang = cleanEmail === 'sayangorai298@gmail.com';
-        const userObj = {
-          id: profile.id,
-          email: profile.email,
-          fullName: profile.full_name,
-          studentId: profile.student_id || 'Not provided',
-          college: profile.college || 'Not provided',
-          branch: profile.branch || 'Computer Science & Engineering',
-          semester: profile.semester || 'Semester I',
-          academicYear: profile.academic_year || '2026-2027',
-          role: (profile.role && profile.role !== 'STUDENT') ? profile.role : (isSayang ? 'ADMIN' : (profile.role || 'STUDENT')),
-          avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-          bio: profile.bio || '',
-          karmaPoints: profile.karma_points || 0
-        };
-
-        this.saveLocalSession(userObj);
-        return userObj;
+      } catch (e) {
+        console.warn('Profile fetch note:', e);
       }
-
-      // Development / Local Fallback Authentication
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
       const isSayang = cleanEmail === 'sayangorai298@gmail.com';
 
-      if (!user) {
-        if (isSayang) {
-          user = {
-            id: 'usr_admin_sayang',
-            email: cleanEmail,
-            fullName: 'Samir Gorai',
-            studentId: 'Not provided',
-            college: 'Not provided',
-            branch: 'Computer Science & Engineering',
-            semester: 'Semester I',
-            academicYear: '2026-2027',
-            role: 'ADMIN',
-            avatarGradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-            bio: 'University Administrator / Academic Dean',
-            karmaPoints: 0,
-            createdAt: new Date().toISOString()
-          };
-          users.push(user);
-          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
-        } else {
-          throw new Error('Invalid credentials. Please verify your email and password, or create a new account.');
+      // If profile record does not exist yet, upsert it
+      if (!profile) {
+        const meta = data.user.user_metadata || {};
+        const newProf = {
+          id: data.user.id,
+          email: cleanEmail,
+          full_name: meta.full_name || (isSayang ? 'Samir Gorai' : 'MAKAUT Student'),
+          student_id: meta.student_id || ('MAK-' + data.user.id.slice(0, 8)),
+          college: meta.college || 'MAKAUT Affiliated Institute',
+          branch: meta.branch || 'Computer Science & Engineering',
+          semester: meta.semester || 'Semester I',
+          role: isSayang ? 'ADMIN' : 'STUDENT'
+        };
+
+        try {
+          const { data: inserted } = await supabase.from('profiles').upsert([newProf]).select().single();
+          if (inserted) profile = inserted;
+        } catch (e) {
+          console.warn('Profile direct insert note:', e);
         }
+
+        if (!profile) profile = newProf;
       }
 
-      if (user.passwordHash && user.passwordHash !== password) {
-        throw new Error('Invalid password for this student account.');
-      }
+      const userObj = {
+        id: profile.id,
+        email: profile.email,
+        fullName: profile.full_name || 'Student',
+        studentId: profile.student_id || 'Not provided',
+        college: profile.college || 'Not provided',
+        branch: profile.branch || 'Computer Science & Engineering',
+        semester: profile.semester || 'Semester I',
+        academicYear: profile.academic_year || '2026-2027',
+        role: isSayang ? 'ADMIN' : (profile.role || 'STUDENT'),
+        avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+        bio: profile.bio || '',
+        karmaPoints: profile.karma_points || 0
+      };
 
-      if (isSayang) {
-        user.role = 'ADMIN';
-      }
-
-      const sessionUser = { ...user };
-      delete sessionUser.passwordHash;
-      this.saveLocalSession(sessionUser);
-      return sessionUser;
+      this.saveLocalSession(userObj);
+      return userObj;
     }
 
     async signup(formData) {
@@ -314,81 +257,72 @@
       const isSayang = cleanEmail === 'sayangorai298@gmail.com';
       const supabase = this.getSupabase();
 
-      if (supabase) {
-        const { data, error } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.fullName.trim(),
-              student_id: formData.studentId ? formData.studentId.trim() : 'Not provided',
-              college: formData.college ? formData.college.trim() : 'Not provided',
-              branch: formData.branch || 'Computer Science & Engineering',
-              semester: formData.semester || 'Semester I'
-            }
+      if (!supabase) {
+        throw new Error('Database Connection Error: Supabase backend is not initialized. Please verify your network.');
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName.trim(),
+            student_id: formData.studentId ? formData.studentId.trim() : ('MAK-' + Date.now().toString(36)),
+            college: formData.college ? formData.college.trim() : 'MAKAUT Affiliated Institute',
+            branch: formData.branch || 'Computer Science & Engineering',
+            semester: formData.semester || 'Semester I'
           }
-        });
+        }
+      });
 
-        if (error) throw new Error(error.message);
+      if (error) {
+        throw new Error(error.message);
+      }
 
-        const userObj = {
-          id: data.user ? data.user.id : 'usr_' + Date.now(),
+      if (!data || !data.user) {
+        throw new Error('Registration failed: Supabase did not return a user record.');
+      }
+
+      // Upsert profile in Supabase profiles table
+      try {
+        await supabase.from('profiles').upsert([{
+          id: data.user.id,
           email: cleanEmail,
-          fullName: formData.fullName.trim(),
-          studentId: formData.studentId ? formData.studentId.trim() : 'Not provided',
-          college: formData.college ? formData.college.trim() : 'Not provided',
+          full_name: formData.fullName.trim(),
+          student_id: formData.studentId ? formData.studentId.trim() : ('MAK-' + data.user.id.slice(0, 8)),
+          college: formData.college ? formData.college.trim() : 'MAKAUT Affiliated Institute',
           branch: formData.branch || 'Computer Science & Engineering',
           semester: formData.semester || 'Semester I',
-          role: isSayang ? 'ADMIN' : 'STUDENT',
-          avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-          karmaPoints: 0
+          role: isSayang ? 'ADMIN' : 'STUDENT'
+        }], { onConflict: 'id' });
+      } catch (upsertErr) {
+        console.warn('Profile direct creation note:', upsertErr);
+      }
+
+      const isEmailConfirmed = Boolean(data.session) || Boolean(data.user.confirmed_at);
+      if (!isEmailConfirmed) {
+        return {
+          requiresEmailConfirmation: true,
+          email: cleanEmail,
+          message: 'Account created! Please check your email to verify your account before logging in.'
         };
-
-        this.saveLocalSession(userObj);
-        return userObj;
       }
 
-      // Development / Local Fallback Sign-up
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (existing) {
-        throw new Error('An account with this email address already exists.');
-      }
-
-      const id = 'usr_' + Date.now();
-      const gradients = [
-        'linear-gradient(135deg, #6366f1, #a855f7)',
-        'linear-gradient(135deg, #3b82f6, #06b6d4)',
-        'linear-gradient(135deg, #10b981, #34d399)',
-        'linear-gradient(135deg, #f59e0b, #fbbf24)',
-        'linear-gradient(135deg, #ec4899, #f43f5e)'
-      ];
-      const randomGradient = gradients[Math.floor(Math.random() * gradients.length)];
-
-      const newUser = {
-        id,
+      const userObj = {
+        id: data.user.id,
         email: cleanEmail,
         fullName: formData.fullName.trim(),
         studentId: formData.studentId ? formData.studentId.trim() : 'Not provided',
         college: formData.college ? formData.college.trim() : 'Not provided',
         branch: formData.branch || 'Computer Science & Engineering',
         semester: formData.semester || 'Semester I',
-        academicYear: '2026-2027',
-        role: isSayang ? 'ADMIN' : 'STUDENT', // Strictly default to STUDENT unless primary admin
-        passwordHash: formData.password,
-        avatarGradient: randomGradient,
-        bio: '',
-        karmaPoints: 0,
-        createdAt: new Date().toISOString()
+        role: isSayang ? 'ADMIN' : 'STUDENT',
+        avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+        karmaPoints: 0
       };
 
-      users.push(newUser);
-      localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
-
-      const sessionUser = { ...newUser };
-      delete sessionUser.passwordHash;
-      this.saveLocalSession(sessionUser);
-      return sessionUser;
+      this.saveLocalSession(userObj);
+      return userObj;
     }
 
     async resetPassword(email) {
@@ -399,7 +333,7 @@
         if (error) throw new Error(error.message);
         return true;
       }
-      return true;
+      throw new Error('Supabase backend not connected.');
     }
 
     async logout() {
@@ -408,612 +342,456 @@
         try {
           await supabase.auth.signOut();
         } catch (e) {
-          console.warn('Supabase signout warning:', e);
+          console.warn('Supabase signout notice:', e);
         }
       }
       this.saveLocalSession(null);
     }
 
     // ------------------------------------------------------------------------
-    // COMMUNITY NOTES CRUD & STORAGE (Multi-User, Raw File Upload)
+    // COMMUNITY NOTES CRUD & STORAGE (Multi-User, Raw Binary File Upload)
     // ------------------------------------------------------------------------
     async getAllNotesAsync() {
       const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          const { data, error } = await supabase
-            .from('notes')
-            .select('*')
-            .order('created_at', { ascending: false });
+      if (!supabase) return [];
 
-          if (!error && data) {
-            return data.map(n => ({
-              id: n.id,
-              uploaderId: n.uploader_id,
-              uploaderName: n.uploader_name,
-              uploaderAvatar: n.uploader_avatar,
-              title: n.title,
-              subjectId: n.subject_id,
-              subjectName: n.subject_name,
-              moduleName: n.module_name,
-              topicName: n.topic_name,
-              category: n.category,
-              description: n.description,
-              tags: n.tags || [],
-              storagePath: n.storage_path,
-              fileUrl: n.file_url || '',
-              fileName: n.file_name,
-              fileType: n.file_type,
-              fileSize: n.file_size,
-              version: n.version,
-              downloadsCount: n.downloads_count || 0,
-              viewsCount: n.views_count || 0,
-              ratingSum: n.rating_sum || 0,
-              ratingCount: n.rating_count || 0,
-              isVerified: n.is_verified !== false,
-              createdAt: n.created_at,
-              updatedAt: n.updated_at
-            }));
-          }
-        } catch (err) {
-          console.warn('Supabase notes query error:', err);
+      try {
+        const { data, error } = await supabase
+          .from('notes')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          return data.map(n => ({
+            id: n.id,
+            uploaderId: n.uploader_id,
+            uploaderName: n.uploader_name,
+            uploaderAvatar: n.uploader_avatar,
+            title: n.title,
+            subjectId: n.subject_id,
+            subjectName: n.subject_name,
+            moduleName: n.module_name,
+            topicName: n.topic_name,
+            category: n.category,
+            description: n.description,
+            tags: n.tags || [],
+            storagePath: n.storage_path,
+            fileUrl: n.file_url || '',
+            fileName: n.file_name,
+            fileType: n.file_type,
+            fileSize: n.file_size,
+            version: n.version,
+            downloadsCount: n.downloads_count || 0,
+            viewsCount: n.views_count || 0,
+            ratingSum: n.rating_sum || 0,
+            ratingCount: n.rating_count || 0,
+            isVerified: Boolean(n.is_verified),
+            createdAt: n.created_at,
+            updatedAt: n.updated_at
+          }));
         }
+      } catch (err) {
+        console.warn('Supabase notes fetch notice:', err);
       }
-      return this.getAllNotes();
+      return [];
     }
 
     getAllNotes() {
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_NOTES) || '[]');
+      return [];
     }
 
-    getNoteById(id) {
-      const notes = this.getAllNotes();
-      return notes.find((n) => n.id === id);
-    }
-
-    getFileBlob(noteId) {
-      return fileBlobsMap.get(noteId) || null;
-    }
-
-    formatFileSize(bytes) {
-      if (!bytes || bytes === 0) return '0 B';
-      const k = 1024;
-      const sizes = ['B', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    async addNoteAsync(data, file) {
-      if (!this.currentUser) throw new Error('You must be authenticated to share notes.');
-      if (!file) throw new Error('Please select a valid file to upload.');
-
-      const cleanFileName = file.name ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'Study_Notes.pdf';
-      const fileExt = cleanFileName.split('.').pop().toUpperCase() || 'PDF';
-      const formattedSize = this.formatFileSize(file.size);
-      const uniqueNoteId = 'note_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-      const storagePath = `notes/${this.currentUser.id}/${uniqueNoteId}/${cleanFileName}`;
-
+    async getNoteByIdAsync(id) {
       const supabase = this.getSupabase();
-      if (supabase) {
-        // 1. Upload original File directly to Supabase Storage bucket
-        const { data: uploadRes, error: uploadErr } = await supabase.storage
-          .from('community-notes')
-          .upload(storagePath, file, {
-            contentType: file.type || 'application/pdf',
-            upsert: false
-          });
+      if (!supabase) return null;
 
-        if (uploadErr) {
-          throw new Error(`Storage upload failed: ${uploadErr.message}`);
-        }
-
-        // 2. Get Public or Signed URL
-        const { data: urlData } = supabase.storage
-          .from('community-notes')
-          .getPublicUrl(storagePath);
-        const fileUrl = urlData ? urlData.publicUrl : '';
-
-        // 3. Create Note record in PostgreSQL notes table
-        const { data: inserted, error: dbErr } = await supabase
-          .from('notes')
-          .insert([{
-            uploader_id: this.currentUser.id, // Strictly authenticated user ID
-            uploader_name: this.currentUser.fullName,
-            uploader_avatar: this.currentUser.avatarGradient,
-            title: data.title.trim(),
-            subject_id: data.subjectId || 'BS-M101',
-            subject_name: data.subjectName || data.subject,
-            module_name: data.moduleName || 'Module I',
-            topic_name: data.topicName || '',
-            category: data.category || 'Handwritten Notes',
-            description: data.description || '',
-            tags: data.tags && Array.isArray(data.tags) ? data.tags : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
-            storage_path: storagePath,
-            file_url: fileUrl,
-            file_name: cleanFileName,
-            file_type: fileExt,
-            file_size: formattedSize,
-            version: 1
-          }])
-          .select()
-          .single();
-
-        if (dbErr) {
-          // Cleanup orphaned storage object
-          try { await supabase.storage.from('community-notes').remove([storagePath]); } catch (e) {}
-          throw new Error(`Database record failed: ${dbErr.message}`);
-        }
-
-        return inserted;
-      }
-
-      // Offline / Local Dev Fallback: Retain exact binary Blob in memory map
-      fileBlobsMap.set(uniqueNoteId, file);
-      const blobUrl = URL.createObjectURL(file);
-
-      const notes = this.getAllNotes();
-      const newNote = {
-        id: uniqueNoteId,
-        uploaderId: this.currentUser.id,
-        uploaderName: this.currentUser.fullName,
-        uploaderAvatar: this.currentUser.avatarGradient,
-        title: data.title.trim(),
-        subjectId: data.subjectId || 'BS-M101',
-        subjectName: data.subjectName || data.subject,
-        moduleName: data.moduleName || 'Module I',
-        topicName: data.topicName || '',
-        category: data.category || 'Handwritten Notes',
-        description: data.description || '',
-        tags: data.tags && Array.isArray(data.tags) ? data.tags : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
-        storagePath: storagePath,
-        fileUrl: blobUrl,
-        fileName: cleanFileName,
-        fileType: fileExt,
-        fileSize: formattedSize,
-        version: 1,
-        downloadsCount: 0,
-        viewsCount: 1,
-        ratingSum: 0,
-        ratingCount: 0,
-        isVerified: true,
-        comments: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      notes.unshift(newNote);
-      localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(notes));
-      this.addKarmaPoints(this.currentUser.id, 50);
-      return newNote;
-    }
-
-    async updateNoteAsync(id, updatedFields, newFile = null) {
-      if (!this.currentUser) throw new Error('Not authenticated');
-
-      const supabase = this.getSupabase();
-      if (supabase) {
-        const updatePayload = {
-          title: updatedFields.title,
-          description: updatedFields.description,
-          updated_at: new Date().toISOString()
-        };
-
-        if (newFile) {
-          const cleanFileName = newFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const fileExt = cleanFileName.split('.').pop().toUpperCase() || 'PDF';
-          const formattedSize = this.formatFileSize(newFile.size);
-          const uniqueId = 'v' + Date.now();
-          const storagePath = `notes/${this.currentUser.id}/${uniqueId}/${cleanFileName}`;
-
-          const { error: uploadErr } = await supabase.storage
-            .from('community-notes')
-            .upload(storagePath, newFile, { contentType: newFile.type || 'application/pdf', upsert: false });
-
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage.from('community-notes').getPublicUrl(storagePath);
-            updatePayload.storage_path = storagePath;
-            updatePayload.file_url = urlData ? urlData.publicUrl : '';
-            updatePayload.file_name = cleanFileName;
-            updatePayload.file_type = fileExt;
-            updatePayload.file_size = formattedSize;
-          }
-        }
-
+      try {
         const { data, error } = await supabase
           .from('notes')
-          .update(updatePayload)
+          .select('*')
           .eq('id', id)
-          .eq('uploader_id', this.currentUser.id)
-          .select()
           .single();
 
-        if (error) throw new Error(error.message);
-        return data;
-      }
-
-      // Offline / Local Dev
-      const notes = this.getAllNotes();
-      const note = notes.find((n) => n.id === id);
-      if (!note) throw new Error('Note not found');
-
-      if (note.uploaderId !== this.currentUser.id && this.currentUser.role !== 'ADMIN') {
-        throw new Error('Permission denied: You can only edit your own uploads.');
-      }
-
-      if (newFile) {
-        fileBlobsMap.set(id, newFile);
-        updatedFields.fileUrl = URL.createObjectURL(newFile);
-        updatedFields.fileName = newFile.name;
-        updatedFields.fileSize = this.formatFileSize(newFile.size);
-        updatedFields.version = (note.version || 1) + 1;
-      }
-
-      const updated = notes.map((n) => {
-        if (n.id === id) {
+        if (!error && data) {
           return {
-            ...n,
-            ...updatedFields,
-            updatedAt: new Date().toISOString()
+            id: data.id,
+            uploaderId: data.uploader_id,
+            uploaderName: data.uploader_name,
+            uploaderAvatar: data.uploader_avatar,
+            title: data.title,
+            subjectId: data.subject_id,
+            subjectName: data.subject_name,
+            moduleName: data.module_name,
+            topicName: data.topic_name,
+            category: data.category,
+            description: data.description,
+            tags: data.tags || [],
+            storagePath: data.storage_path,
+            fileUrl: data.file_url || '',
+            fileName: data.file_name,
+            fileType: data.file_type,
+            fileSize: data.file_size,
+            version: data.version,
+            downloadsCount: data.downloads_count || 0,
+            viewsCount: data.views_count || 0,
+            ratingSum: data.rating_sum || 0,
+            ratingCount: data.rating_count || 0,
+            isVerified: Boolean(data.is_verified),
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
           };
         }
-        return n;
-      });
+      } catch (e) {}
+      return null;
+    }
 
-      localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(updated));
-      return this.getNoteById(id);
+    async uploadNoteAsync(data, file) {
+      if (!this.currentUser) throw new Error('Not authenticated');
+      if (!file) throw new Error('No study material file attached');
+
+      const supabase = this.getSupabase();
+      if (!supabase) {
+        throw new Error('Supabase Storage connection not available.');
+      }
+
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileExt = cleanFileName.split('.').pop().toUpperCase() || 'PDF';
+      const formattedSize = this.formatFileSize(file.size);
+      const uniqueTimestamp = Date.now();
+      const storagePath = `notes/${this.currentUser.id}/${uniqueTimestamp}/${cleanFileName}`;
+
+      // 1. Upload Binary File to Supabase Storage
+      const { error: uploadErr } = await supabase.storage
+        .from('community-notes')
+        .upload(storagePath, file, {
+          contentType: file.type || 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadErr) {
+        throw new Error(`Supabase Storage upload failed: ${uploadErr.message}`);
+      }
+
+      // 2. Get Public URL
+      const { data: urlData } = supabase.storage
+        .from('community-notes')
+        .getPublicUrl(storagePath);
+      const fileUrl = urlData ? urlData.publicUrl : '';
+
+      // 3. Create Note record in PostgreSQL
+      const { data: inserted, error: dbErr } = await supabase
+        .from('notes')
+        .insert([{
+          uploader_id: this.currentUser.id,
+          uploader_name: this.currentUser.fullName,
+          uploader_avatar: this.currentUser.avatarGradient,
+          title: data.title.trim(),
+          subject_id: data.subjectId || 'BS-M101',
+          subject_name: data.subjectName || data.subject,
+          module_name: data.moduleName || 'Module I',
+          topic_name: data.topicName || '',
+          category: data.category || 'Handwritten Notes',
+          description: data.description || '',
+          tags: data.tags && Array.isArray(data.tags) ? data.tags : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
+          storage_path: storagePath,
+          file_url: fileUrl,
+          file_name: cleanFileName,
+          file_type: fileExt,
+          file_size: formattedSize,
+          version: 1
+        }])
+        .select()
+        .single();
+
+      if (dbErr) {
+        throw new Error(`Database record failed: ${dbErr.message}`);
+      }
+
+      return inserted;
     }
 
     async deleteNoteAsync(id) {
       if (!this.currentUser) throw new Error('Not authenticated');
-
       const supabase = this.getSupabase();
-      if (supabase) {
-        const { error } = await supabase
-          .from('notes')
-          .delete()
-          .eq('id', id);
+      if (!supabase) throw new Error('Supabase not connected');
 
-        if (error) throw new Error(error.message);
-        return true;
-      }
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', id);
 
-      const notes = this.getAllNotes();
-      const note = notes.find((n) => n.id === id);
-      if (!note) return false;
-
-      if (note.uploaderId !== this.currentUser.id && !['ADMIN', 'MODERATOR'].includes(this.currentUser.role)) {
-        throw new Error('Permission denied: You can only delete your own uploads.');
-      }
-
-      fileBlobsMap.delete(id);
-      const filtered = notes.filter((n) => n.id !== id);
-      localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(filtered));
+      if (error) throw new Error(error.message);
       return true;
     }
 
-    incrementDownload(id) {
-      const notes = this.getAllNotes();
-      const updated = notes.map((n) => {
-        if (n.id === id) {
-          return { ...n, downloadsCount: (n.downloadsCount || 0) + 1 };
+    async incrementDownloadAsync(id) {
+      const supabase = this.getSupabase();
+      if (!supabase) return;
+      try {
+        const { data: current } = await supabase.from('notes').select('downloads_count').eq('id', id).single();
+        if (current) {
+          await supabase.from('notes').update({ downloads_count: (current.downloads_count || 0) + 1 }).eq('id', id);
         }
-        return n;
-      });
-      localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(updated));
-      return this.getNoteById(id);
+      } catch (e) {}
+    }
+
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 KB';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
 
     // ------------------------------------------------------------------------
-    // DUPLICATE DETECTION
+    // BOOKMARKS (Cross-Device, User-Specific)
     // ------------------------------------------------------------------------
-    checkDuplicate(title, subjectId) {
-      if (!title) return null;
-      const cleanTitle = title.toLowerCase().trim();
-      const notes = this.getAllNotes();
-
-      return notes.find((n) => {
-        const isSameSubj = subjectId ? (n.subjectId === subjectId || n.subjectName.toLowerCase().includes(subjectId.toLowerCase())) : true;
-        const nTitle = n.title.toLowerCase();
-        const isSimilar = nTitle.includes(cleanTitle) || cleanTitle.includes(nTitle) || this.computeSimilarity(cleanTitle, nTitle) > 0.6;
-        return isSameSubj && isSimilar;
-      });
-    }
-
-    computeSimilarity(s1, s2) {
-      const w1 = s1.split(/\s+/);
-      const w2 = s2.split(/\s+/);
-      let match = 0;
-      w1.forEach(w => { if (w.length > 2 && w2.includes(w)) match++; });
-      return (match * 2) / (w1.length + w2.length);
-    }
-
-    // ------------------------------------------------------------------------
-    // RATINGS & REVIEWS
-    // ------------------------------------------------------------------------
-    rateNote(noteId, stars) {
-      if (!this.currentUser) throw new Error('Must be authenticated to rate.');
-      stars = Math.max(1, Math.min(5, parseInt(stars, 10)));
-
-      const ratings = JSON.parse(localStorage.getItem(STORAGE_DEV_RATINGS) || '{}');
-      const userRatings = ratings[this.currentUser.id] || {};
-      const previousStars = userRatings[noteId];
-
-      userRatings[noteId] = stars;
-      ratings[this.currentUser.id] = userRatings;
-      localStorage.setItem(STORAGE_DEV_RATINGS, JSON.stringify(ratings));
-
-      const notes = this.getAllNotes();
-      const updated = notes.map((n) => {
-        if (n.id === noteId) {
-          let sum = n.ratingSum || 0;
-          let count = n.ratingCount || 0;
-          if (previousStars) {
-            sum = sum - previousStars + stars;
-          } else {
-            sum += stars;
-            count += 1;
-          }
-          return { ...n, ratingSum: sum, ratingCount: count };
-        }
-        return n;
-      });
-      localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(updated));
-      return this.getNoteById(noteId);
-    }
-
-    getUserRatingForNote(noteId) {
-      if (!this.currentUser) return 0;
-      const ratings = JSON.parse(localStorage.getItem(STORAGE_DEV_RATINGS) || '{}');
-      const userRatings = ratings[this.currentUser.id] || {};
-      return userRatings[noteId] || 0;
-    }
-
-    // ------------------------------------------------------------------------
-    // BOOKMARKS (User-Specific)
-    // ------------------------------------------------------------------------
-    getUserBookmarks() {
+    async getUserBookmarksAsync() {
       if (!this.currentUser) return [];
-      const allBookmarks = JSON.parse(localStorage.getItem(STORAGE_DEV_BOOKMARKS) || '{}');
-      return allBookmarks[this.currentUser.id] || [];
-    }
+      const supabase = this.getSupabase();
+      if (!supabase) return [];
 
-    toggleBookmark(itemType, itemId, title, subtitle) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const allBookmarks = JSON.parse(localStorage.getItem(STORAGE_DEV_BOOKMARKS) || '{}');
-      let userList = allBookmarks[this.currentUser.id] || [];
+      try {
+        const { data, error } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .eq('user_id', this.currentUser.id);
 
-      const exists = userList.some((b) => b.itemId === itemId);
-      if (exists) {
-        userList = userList.filter((b) => b.itemId !== itemId);
-      } else {
-        userList.push({
-          id: 'bm_' + Date.now(),
-          itemType,
-          itemId,
-          title,
-          subtitle,
-          savedAt: new Date().toISOString()
-        });
-      }
-
-      allBookmarks[this.currentUser.id] = userList;
-      localStorage.setItem(STORAGE_DEV_BOOKMARKS, JSON.stringify(allBookmarks));
-      return !exists;
-    }
-
-    isBookmarked(itemId) {
-      const list = this.getUserBookmarks();
-      return list.some((b) => b.itemId === itemId);
-    }
-
-    // ------------------------------------------------------------------------
-    // USER-SPECIFIC TOPIC PROGRESS
-    // ------------------------------------------------------------------------
-    getUserProgress() {
-      if (!this.currentUser) return {};
-      const allProg = JSON.parse(localStorage.getItem(STORAGE_DEV_PROGRESS) || '{}');
-      return allProg[this.currentUser.id] || {};
-    }
-
-    toggleTopicProgress(courseId, topicName) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const allProg = JSON.parse(localStorage.getItem(STORAGE_DEV_PROGRESS) || '{}');
-      const userProg = allProg[this.currentUser.id] || {};
-      const courseProg = userProg[courseId] || [];
-
-      const idx = courseProg.indexOf(topicName);
-      if (idx > -1) {
-        courseProg.splice(idx, 1);
-      } else {
-        courseProg.push(topicName);
-        this.addKarmaPoints(this.currentUser.id, 10);
-      }
-
-      userProg[courseId] = courseProg;
-      allProg[this.currentUser.id] = userProg;
-      localStorage.setItem(STORAGE_DEV_PROGRESS, JSON.stringify(allProg));
-      return courseProg.includes(topicName);
-    }
-
-    // ------------------------------------------------------------------------
-    // ACADEMIC Q&A FORUM
-    // ------------------------------------------------------------------------
-    getAllQuestions() {
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_QUESTIONS) || '[]');
-    }
-
-    askQuestion(title, courseId, moduleName, details, tags) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const questions = this.getAllQuestions();
-      const newQ = {
-        id: 'q_' + Date.now(),
-        userId: this.currentUser.id,
-        userName: this.currentUser.fullName,
-        userAvatar: this.currentUser.avatarGradient,
-        title: title.trim(),
-        courseId,
-        moduleName,
-        details: details.trim(),
-        tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-        upvotes: 1,
-        isSolved: false,
-        answers: [],
-        createdAt: new Date().toISOString()
-      };
-
-      questions.unshift(newQ);
-      localStorage.setItem(STORAGE_DEV_QUESTIONS, JSON.stringify(questions));
-      this.addKarmaPoints(this.currentUser.id, 20);
-      return newQ;
-    }
-
-    answerQuestion(questionId, text) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const questions = this.getAllQuestions();
-      const q = questions.find((item) => item.id === questionId);
-      if (!q) throw new Error('Question not found');
-
-      const newAns = {
-        id: 'ans_' + Date.now(),
-        userId: this.currentUser.id,
-        userName: this.currentUser.fullName,
-        userAvatar: this.currentUser.avatarGradient,
-        text: text.trim(),
-        upvotes: 0,
-        isAccepted: false,
-        createdAt: new Date().toISOString()
-      };
-
-      q.answers.push(newAns);
-      localStorage.setItem(STORAGE_DEV_QUESTIONS, JSON.stringify(questions));
-      this.addKarmaPoints(this.currentUser.id, 30);
-      return newAns;
-    }
-
-    // ------------------------------------------------------------------------
-    // COMMUNITY CHAT
-    // ------------------------------------------------------------------------
-    getChatMessages(channel = 'general') {
-      const all = JSON.parse(localStorage.getItem(STORAGE_DEV_CHAT) || '[]');
-      return all.filter((m) => m.channel === channel);
-    }
-
-    sendChatMessage(channel, text) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const all = JSON.parse(localStorage.getItem(STORAGE_DEV_CHAT) || '[]');
-      const newMsg = {
-        id: 'msg_' + Date.now(),
-        channel,
-        userId: this.currentUser.id,
-        userName: this.currentUser.fullName,
-        userRole: this.currentUser.role,
-        userAvatar: this.currentUser.avatarGradient,
-        text: text.trim(),
-        createdAt: new Date().toISOString()
-      };
-
-      all.push(newMsg);
-      localStorage.setItem(STORAGE_DEV_CHAT, JSON.stringify(all));
-      return newMsg;
-    }
-
-    // ------------------------------------------------------------------------
-    // ANNOUNCEMENTS & CALENDAR
-    // ------------------------------------------------------------------------
-    getAnnouncements() {
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
-    }
-
-    addAnnouncement(title, category, content, badgeType = 'OFFICIAL') {
-      if (!this.currentUser || this.currentUser.role !== 'ADMIN') {
-        throw new Error('Permission denied: Only ADMIN can broadcast announcements.');
-      }
-      const annList = this.getAnnouncements();
-      const newAnn = {
-        id: 'ann_' + Date.now(),
-        title: title.trim(),
-        category,
-        badgeType,
-        authorName: this.currentUser.fullName,
-        content: content.trim(),
-        isPinned: false,
-        createdAt: new Date().toISOString()
-      };
-      annList.unshift(newAnn);
-      localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(annList));
-      return newAnn;
-    }
-
-    getCalendarEvents() {
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_CALENDAR) || '[]');
-    }
-
-    // ------------------------------------------------------------------------
-    // MODERATION & REPORTS
-    // ------------------------------------------------------------------------
-    reportContent(itemType, itemId, reason) {
-      if (!this.currentUser) throw new Error('Authentication required.');
-      const reports = JSON.parse(localStorage.getItem(STORAGE_DEV_REPORTS) || '[]');
-      const newReport = {
-        id: 'rep_' + Date.now(),
-        reporterId: this.currentUser.id,
-        reporterName: this.currentUser.fullName,
-        itemType,
-        itemId,
-        reason,
-        status: 'PENDING',
-        createdAt: new Date().toISOString()
-      };
-      reports.unshift(newReport);
-      localStorage.setItem(STORAGE_DEV_REPORTS, JSON.stringify(reports));
-      return newReport;
-    }
-
-    getAllReports() {
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_REPORTS) || '[]');
-    }
-
-    // ------------------------------------------------------------------------
-    // USER STATS & KARMA
-    // ------------------------------------------------------------------------
-    getUserStats(userId = null) {
-      const targetUserId = userId || (this.currentUser ? this.currentUser.id : null);
-      if (!targetUserId) {
-        return { totalUploads: 0, totalDownloads: 0, avgRating: '0.0', karmaPoints: 0, badge: 'New Student' };
-      }
-
-      const notes = this.getAllNotes().filter((n) => n.uploaderId === targetUserId);
-      const totalUploads = notes.length;
-      const totalDownloads = notes.reduce((acc, n) => acc + (n.downloadsCount || 0), 0);
-
-      let sum = 0;
-      let count = 0;
-      notes.forEach((n) => {
-        if (n.ratingCount > 0) {
-          sum += n.ratingSum;
-          count += n.ratingCount;
+        if (!error && data) {
+          return data.map(b => ({
+            id: b.id,
+            itemType: b.item_type,
+            itemId: b.item_id,
+            title: b.title,
+            subtitle: b.subtitle,
+            savedAt: b.created_at
+          }));
         }
-      });
-      const avgRating = count > 0 ? (sum / count).toFixed(1) : '0.0';
-
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      const user = users.find((u) => u.id === targetUserId);
-      const karma = user ? (user.karmaPoints || user.karma_points || 0) : (this.currentUser && this.currentUser.id === targetUserId ? (this.currentUser.karmaPoints || 0) : 0);
-      let badge = 'Student Contributor 📚';
-      if (totalDownloads > 100 || karma > 400) badge = 'Master Contributor ⭐';
-      if (user && user.role === 'CR') badge = 'Class Representative 🎓';
-      if (user && user.role === 'ADMIN') badge = 'Academic Dean 🏛️';
-      if (user && user.role === 'MODERATOR') badge = 'Faculty Moderator 🛡️';
-
-      return {
-        totalUploads,
-        totalDownloads,
-        avgRating,
-        karmaPoints: karma,
-        badge
-      };
+      } catch (e) {}
+      return [];
     }
 
+    async toggleBookmarkAsync(itemType, itemId, title, subtitle) {
+      if (!this.currentUser) throw new Error('Authentication required.');
+      const supabase = this.getSupabase();
+      if (!supabase) throw new Error('Supabase not connected');
+
+      const { data: existing } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', this.currentUser.id)
+        .eq('item_id', itemId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('bookmarks').delete().eq('id', existing.id);
+        return false;
+      } else {
+        await supabase.from('bookmarks').insert([{
+          user_id: this.currentUser.id,
+          item_type: itemType,
+          item_id: itemId,
+          title: title,
+          subtitle: subtitle || ''
+        }]);
+        return true;
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // STUDENT PROGRESS (Cross-Device, User-Specific)
+    // ------------------------------------------------------------------------
+    async getUserProgressAsync() {
+      if (!this.currentUser) return {};
+      const supabase = this.getSupabase();
+      if (!supabase) return {};
+
+      try {
+        const { data, error } = await supabase
+          .from('student_progress')
+          .select('*')
+          .eq('user_id', this.currentUser.id)
+          .eq('is_completed', true);
+
+        if (!error && data) {
+          const progMap = {};
+          data.forEach(p => {
+            if (!progMap[p.course_id]) progMap[p.course_id] = [];
+            progMap[p.course_id].push(p.topic_name);
+          });
+          return progMap;
+        }
+      } catch (e) {}
+      return {};
+    }
+
+    async toggleTopicProgressAsync(courseId, topicName) {
+      if (!this.currentUser) throw new Error('Authentication required.');
+      const supabase = this.getSupabase();
+      if (!supabase) throw new Error('Supabase not connected');
+
+      const { data: existing } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('user_id', this.currentUser.id)
+        .eq('course_id', courseId)
+        .eq('topic_name', topicName)
+        .maybeSingle();
+
+      if (existing && existing.is_completed) {
+        await supabase.from('student_progress').delete().eq('id', existing.id);
+        return false;
+      } else {
+        await supabase.from('student_progress').upsert([{
+          user_id: this.currentUser.id,
+          course_id: courseId,
+          topic_name: topicName,
+          is_completed: true
+        }], { onConflict: 'user_id,course_id,topic_name' });
+        return true;
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // COMMUNITY CHAT (Cross-Device, Realtime Ready)
+    // ------------------------------------------------------------------------
+    async getChatMessagesAsync(channel = 'general') {
+      const supabase = this.getSupabase();
+      if (!supabase) return [];
+
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('*')
+          .eq('channel', channel)
+          .order('created_at', { ascending: true })
+          .limit(100);
+
+        if (!error && data) {
+          return data.map(m => ({
+            id: m.id,
+            channel: m.channel,
+            userId: m.user_id,
+            userName: m.user_name,
+            userRole: m.user_role,
+            userAvatar: m.user_avatar,
+            text: m.text,
+            createdAt: m.created_at
+          }));
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    async sendChatMessageAsync(channel, text) {
+      if (!this.currentUser) throw new Error('Authentication required.');
+      const supabase = this.getSupabase();
+      if (!supabase) throw new Error('Supabase not connected');
+
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert([{
+          channel: channel,
+          user_id: this.currentUser.id,
+          user_name: this.currentUser.fullName,
+          user_role: this.currentUser.role,
+          user_avatar: this.currentUser.avatarGradient,
+          text: text.trim()
+        }])
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    // ------------------------------------------------------------------------
+    // ANNOUNCEMENTS & CALENDAR (Cross-Device)
+    // ------------------------------------------------------------------------
+    async getAnnouncementsAsync() {
+      const supabase = this.getSupabase();
+      if (!supabase) return [];
+
+      try {
+        const { data, error } = await supabase
+          .from('announcements')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!error && data) {
+          return data.map(a => ({
+            id: a.id,
+            title: a.title,
+            category: a.category,
+            authorName: a.author_name,
+            content: a.content,
+            badgeType: a.badge_type || 'OFFICIAL',
+            branch: a.branch,
+            semester: a.semester,
+            isPinned: Boolean(a.is_pinned),
+            createdAt: a.created_at
+          }));
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    async addAnnouncementAsync(title, category, content, badgeType = 'OFFICIAL') {
+      if (!this.currentUser || !['ADMIN', 'CR'].includes(this.currentUser.role)) {
+        throw new Error('Permission denied: Only Admin or Class Representative can broadcast announcements.');
+      }
+      const supabase = this.getSupabase();
+      if (!supabase) throw new Error('Supabase not connected');
+
+      const { data, error } = await supabase
+        .from('announcements')
+        .insert([{
+          creator_id: this.currentUser.id,
+          title: title.trim(),
+          category: category,
+          author_name: this.currentUser.fullName,
+          content: content.trim(),
+          badge_type: badgeType,
+          branch: this.currentUser.branch || 'Computer Science & Engineering',
+          semester: this.currentUser.semester || 'Semester I',
+          is_pinned: false
+        }])
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    async getCalendarEventsAsync() {
+      const supabase = this.getSupabase();
+      if (!supabase) return [];
+
+      try {
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .select('*')
+          .order('event_date', { ascending: true });
+
+        if (!error && data) {
+          return data.map(e => ({
+            id: e.id,
+            title: e.title,
+            eventType: e.event_type,
+            eventDate: e.event_date,
+            courseCode: e.course_code,
+            description: e.description,
+            isOfficial: Boolean(e.is_official),
+            createdAt: e.created_at
+          }));
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    // ------------------------------------------------------------------------
+    // CLASS REPRESENTATIVE (CR) CLASS-SCOPED METHODS
+    // ------------------------------------------------------------------------
     isCR() {
       return Boolean(this.currentUser && this.currentUser.role === 'CR');
     }
@@ -1022,21 +800,6 @@
       return Boolean(this.currentUser && (this.currentUser.role === 'CR' || this.currentUser.role === 'ADMIN'));
     }
 
-    addKarmaPoints(userId, pts) {
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      const idx = users.findIndex((u) => u.id === userId);
-      if (idx > -1) {
-        users[idx].karmaPoints = (users[idx].karmaPoints || 0) + pts;
-        localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
-        if (this.currentUser && this.currentUser.id === userId) {
-          this.saveLocalSession(users[idx]);
-        }
-      }
-    }
-
-    // ------------------------------------------------------------------------
-    // CLASS REPRESENTATIVE (CR) CLASS-SCOPED METHODS
-    // ------------------------------------------------------------------------
     async getClassMembersAsync() {
       if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
         throw new Error('Access Denied: Only a Class Representative or Admin can view class members.');
@@ -1046,132 +809,36 @@
       const semester = this.currentUser.semester || 'Semester I';
 
       const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          let query = supabase
-            .from('profiles')
-            .select('id, email, full_name, student_id, college, branch, semester, role, avatar_url, created_at')
-            .order('created_at', { ascending: false });
+      if (!supabase) return [];
 
-          // If CR, strictly scope to own branch and semester
-          if (this.currentUser.role === 'CR') {
-            query = query.eq('branch', branch).eq('semester', semester);
-          }
+      try {
+        const query = supabase
+          .from('profiles')
+          .select('id, email, full_name, student_id, college, branch, semester, role, avatar_url, karma_points, created_at')
+          .order('full_name', { ascending: true });
 
-          const { data, error } = await query;
-          if (!error && Array.isArray(data)) {
-            return data.map(u => ({
-              id: u.id,
-              email: u.email,
-              fullName: u.full_name,
-              studentId: u.student_id || 'Not provided',
-              college: u.college || 'Not provided',
-              branch: u.branch || branch,
-              semester: u.semester || semester,
-              role: u.role || 'STUDENT',
-              avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-              createdAt: u.created_at
-            }));
-          }
-        } catch (err) {
-          console.warn('Supabase class members fetch warning:', err);
+        if (this.currentUser.role === 'CR') {
+          query.eq('branch', branch).eq('semester', semester);
         }
-      }
 
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      let filtered = users;
-      if (this.currentUser.role === 'CR') {
-        filtered = users.filter(u => u.branch === branch && u.semester === semester);
-      }
-      return filtered.map(u => ({
-        id: u.id,
-        email: u.email,
-        fullName: u.fullName,
-        studentId: u.studentId || 'Not provided',
-        college: u.college || 'Not provided',
-        branch: u.branch || branch,
-        semester: u.semester || semester,
-        role: u.role || 'STUDENT',
-        avatarGradient: u.avatarGradient || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-        createdAt: u.createdAt || new Date().toISOString()
-      }));
-    }
-
-    async createClassAnnouncementAsync({ title, content, category, badgeType }) {
-      if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
-        throw new Error('Access Denied: Only a Class Representative or Admin can publish announcements.');
-      }
-
-      const branch = this.currentUser.branch || 'Computer Science & Engineering';
-      const semester = this.currentUser.semester || 'Semester I';
-
-      const newAnn = {
-        id: 'ann_class_' + Date.now(),
-        title: title.trim(),
-        content: content.trim(),
-        category: category || 'Classwork',
-        badgeType: badgeType || 'CLASS NOTICE',
-        authorId: this.currentUser.id,
-        authorName: `${this.currentUser.fullName} (Class Representative)`,
-        branch,
-        semester,
-        isClassScoped: true,
-        createdAt: new Date().toISOString()
-      };
-
-      const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          await supabase.from('announcements').insert([{
-            title: newAnn.title,
-            content: newAnn.content,
-            category: newAnn.category,
-            badge_type: newAnn.badgeType,
-            creator_id: this.currentUser.id,
-            author_name: newAnn.authorName
-          }]);
-        } catch (e) {
-          console.warn('Supabase class announcement insert warning:', e);
+        const { data, error } = await query;
+        if (!error && data) {
+          return data.map(u => ({
+            id: u.id,
+            email: u.email,
+            fullName: u.full_name,
+            studentId: u.student_id || 'Not provided',
+            college: u.college || 'Not provided',
+            branch: u.branch,
+            semester: u.semester,
+            role: u.role || 'STUDENT',
+            avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            karmaPoints: u.karma_points || 0,
+            createdAt: u.created_at
+          }));
         }
-      }
-
-      const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
-      anns.unshift(newAnn);
-      localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(anns));
-      return newAnn;
-    }
-
-    async getClassAnnouncementsAsync() {
-      const branch = this.currentUser ? (this.currentUser.branch || 'Computer Science & Engineering') : '';
-      const semester = this.currentUser ? (this.currentUser.semester || 'Semester I') : '';
-
-      const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          const { data, error } = await supabase
-            .from('announcements')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-          if (!error && Array.isArray(data)) {
-            return data.map(a => ({
-              id: a.id,
-              title: a.title,
-              content: a.content,
-              category: a.category,
-              badgeType: a.badge_type || 'CLASS NOTICE',
-              authorName: a.author_name || 'Class Representative',
-              createdAt: a.created_at
-            }));
-          }
-        } catch (e) {}
-      }
-
-      const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
-      if (this.currentUser && this.currentUser.role === 'CR') {
-        return anns.filter(a => !a.branch || (a.branch === branch && a.semester === semester));
-      }
-      return anns;
+      } catch (e) {}
+      return [];
     }
 
     // ------------------------------------------------------------------------
@@ -1183,61 +850,37 @@
       }
 
       const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, student_id, college, branch, semester, academic_year, role, avatar_url, karma_points, created_at')
-            .order('created_at', { ascending: false });
-
-          if (!error && data) {
-            return data.map(u => ({
-              id: u.id,
-              email: u.email,
-              fullName: u.full_name,
-              studentId: u.student_id || 'Not provided',
-              college: u.college || 'Not provided',
-              branch: u.branch || 'Computer Science & Engineering',
-              semester: u.semester || 'Semester I',
-              academicYear: u.academic_year || '2026-2027',
-              role: u.role || 'STUDENT',
-              avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-              karmaPoints: u.karma_points || 0,
-              createdAt: u.created_at
-            }));
-          }
-        } catch (err) {
-          console.warn('Supabase profiles fetch warning:', err);
-        }
+      if (!supabase) {
+        throw new Error('Supabase database connection not available.');
       }
 
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      if (users.length === 0 && this.currentUser) {
-        return [{
-          id: this.currentUser.id,
-          email: this.currentUser.email,
-          fullName: this.currentUser.fullName || 'Samir Gorai',
-          studentId: this.currentUser.studentId || 'Not provided',
-          college: this.currentUser.college || 'Not provided',
-          branch: this.currentUser.branch || 'Computer Science & Engineering',
-          semester: this.currentUser.semester || 'Semester I',
-          academicYear: this.currentUser.academicYear || '2026-2027',
-          role: this.currentUser.role || 'ADMIN',
-          avatarGradient: this.currentUser.avatarGradient || 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-          karmaPoints: this.currentUser.karmaPoints || 0,
-          createdAt: new Date().toISOString()
-        }];
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, student_id, college, branch, semester, academic_year, role, avatar_url, karma_points, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to load users from database: ${error.message}`);
       }
 
-      return users.map(u => {
-        const safeUser = { ...u };
-        delete safeUser.passwordHash;
-        delete safeUser.password;
-        safeUser.karmaPoints = safeUser.karmaPoints || 0;
-        safeUser.studentId = safeUser.studentId || 'Not provided';
-        safeUser.college = safeUser.college || 'Not provided';
-        return safeUser;
-      });
+      if (Array.isArray(data)) {
+        return data.map(u => ({
+          id: u.id,
+          email: u.email,
+          fullName: u.full_name,
+          studentId: u.student_id || 'Not provided',
+          college: u.college || 'Not provided',
+          branch: u.branch || 'Computer Science & Engineering',
+          semester: u.semester || 'Semester I',
+          academicYear: u.academic_year || '2026-2027',
+          role: u.role || 'STUDENT',
+          avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+          karmaPoints: u.karma_points || 0,
+          createdAt: u.created_at
+        }));
+      }
+
+      return [];
     }
 
     async changeUserRoleAsync(targetUserId, newRole) {
@@ -1250,41 +893,26 @@
       }
 
       const supabase = this.getSupabase();
-      if (supabase) {
-        // Try RPC first (defined in schema)
-        const { error: rpcErr } = await supabase.rpc('admin_set_user_role', {
-          target_user_id: targetUserId,
-          new_role: newRole
-        });
+      if (!supabase) {
+        throw new Error('Supabase database connection not available.');
+      }
 
-        if (rpcErr) {
-          // Direct table update fallback (governed by protect_profile_role_update trigger)
-          const { error: tableErr } = await supabase
-            .from('profiles')
-            .update({ role: newRole })
-            .eq('id', targetUserId);
+      // Try RPC first (defined in schema)
+      const { error: rpcErr } = await supabase.rpc('admin_set_user_role', {
+        target_user_id: targetUserId,
+        new_role: newRole
+      });
 
-          if (tableErr) {
-            throw new Error(`Role update failed: ${tableErr.message}`);
-          }
+      if (rpcErr) {
+        // Direct table update fallback (governed by protect_profile_role_update trigger)
+        const { error: tableErr } = await supabase
+          .from('profiles')
+          .update({ role: newRole })
+          .eq('id', targetUserId);
+
+        if (tableErr) {
+          throw new Error(`Role update failed: ${tableErr.message}`);
         }
-
-        return true;
-      }
-
-      // Local Fallback Mode
-      const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      const userIndex = users.findIndex(u => u.id === targetUserId);
-      if (userIndex === -1) {
-        throw new Error('Target user not found.');
-      }
-
-      users[userIndex].role = newRole;
-      localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
-
-      if (this.currentUser.id === targetUserId) {
-        this.currentUser.role = newRole;
-        this.saveLocalSession(this.currentUser);
       }
 
       return true;
@@ -1336,14 +964,9 @@
               createdAt: data.created_at
             };
           }
-        } catch (e) {
-          console.warn('Supabase syllabus version fetch warning:', e);
-        }
+        } catch (e) {}
       }
-
-      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
-      const active = versions.find(v => v.isActive);
-      return active || defaultOfficial;
+      return defaultOfficial;
     }
 
     async getAllSyllabusVersionsAsync() {
@@ -1386,16 +1009,9 @@
               createdAt: d.created_at
             }));
           }
-        } catch (e) {
-          console.warn('Supabase all syllabus versions warning:', e);
-        }
+        } catch (e) {}
       }
-
-      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
-      if (versions.length === 0) {
-        return [defaultOfficial];
-      }
-      return versions;
+      return [defaultOfficial];
     }
 
     async getSyllabusAuditLogsAsync() {
@@ -1424,12 +1040,9 @@
               createdAt: a.created_at
             }));
           }
-        } catch (e) {
-          console.warn('Supabase syllabus audit log fetch warning:', e);
-        }
+        } catch (e) {}
       }
-
-      return JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_AUDIT) || '[]');
+      return [];
     }
 
     async publishNewSyllabusPDFAsync({ file, changeSummary }) {
@@ -1437,9 +1050,7 @@
         throw new Error('Access Denied: Only a verified Class Representative (CR) or Administrator can publish a syllabus PDF.');
       }
 
-      if (!file) {
-        throw new Error('No PDF file provided.');
-      }
+      if (!file) throw new Error('No PDF file provided.');
 
       // 1. File Name and Size Validation
       if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -1456,16 +1067,12 @@
       }
 
       // 2. Binary Signature Validation (%PDF-)
-      try {
-        const slice = file.slice(0, 5);
-        const buffer = await slice.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        const header = String.fromCharCode(...bytes);
-        if (header !== '%PDF-') {
-          throw new Error('Invalid PDF document: The file does not have a valid %PDF- binary header signature.');
-        }
-      } catch (err) {
-        throw new Error(`PDF validation error: ${err.message}`);
+      const slice = file.slice(0, 5);
+      const buffer = await slice.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const header = String.fromCharCode(...bytes);
+      if (header !== '%PDF-') {
+        throw new Error('Invalid PDF document: The file does not have a valid %PDF- binary header signature.');
       }
 
       const allVersions = await this.getAllSyllabusVersionsAsync();
@@ -1474,111 +1081,67 @@
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `syllabus/official-v${nextVer}-${Date.now()}-${safeName}`;
 
-      let publicUrl = '';
       const supabase = this.getSupabase();
-      if (supabase) {
-        try {
-          // Direct binary File upload to Supabase Storage
-          const { data: uploadData, error: uploadErr } = await supabase.storage
-            .from('community-notes')
-            .upload(storagePath, file, {
-              contentType: 'application/pdf',
-              upsert: true
-            });
+      if (!supabase) throw new Error('Supabase connection not available.');
 
-          if (uploadErr) {
-            throw new Error(`Supabase Storage upload failed: ${uploadErr.message}`);
-          }
+      // Upload binary to Supabase Storage
+      const { error: uploadErr } = await supabase.storage
+        .from('community-notes')
+        .upload(storagePath, file, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
 
-          const { data: urlData } = supabase.storage.from('community-notes').getPublicUrl(storagePath);
-          publicUrl = urlData ? urlData.publicUrl : '';
-
-          // Atomic RPC Database insertion and audit logging
-          const { data: rpcData, error: rpcErr } = await supabase.rpc('publish_syllabus_version', {
-            p_file_name: file.name,
-            p_storage_path: storagePath,
-            p_file_url: publicUrl,
-            p_file_size: file.size,
-            p_change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
-          });
-
-          if (rpcErr) {
-            // Direct table fallback
-            await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
-            const { data: newRow, error: insertErr } = await supabase.from('syllabus_versions').insert([{
-              version: nextVer,
-              file_name: file.name,
-              storage_path: storagePath,
-              file_url: publicUrl,
-              file_size: file.size,
-              change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`,
-              is_active: true,
-              uploaded_by: this.currentUser.id,
-              uploader_name: this.currentUser.fullName,
-              uploader_role: this.currentUser.role
-            }]).select().single();
-
-            if (insertErr) {
-              throw new Error(`Failed to record syllabus version in database: ${insertErr.message}`);
-            }
-
-            // Record audit log
-            await supabase.from('syllabus_audit_log').insert([{
-              user_id: this.currentUser.id,
-              user_name: this.currentUser.fullName,
-              user_role: this.currentUser.role,
-              action: 'UPLOAD_NEW_VERSION',
-              previous_version: prevVer,
-              new_version: nextVer,
-              change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
-            }]);
-
-            return newRow;
-          }
-
-          return rpcData;
-        } catch (e) {
-          throw new Error(`Syllabus update failed: ${e.message}`);
-        }
+      if (uploadErr) {
+        throw new Error(`Supabase Storage upload failed: ${uploadErr.message}`);
       }
 
-      // Local fallback
-      const objectUrl = URL.createObjectURL(file);
-      const newVersionRecord = {
-        id: 'syl_v' + nextVer + '_' + Date.now(),
-        version: nextVer,
-        fileName: file.name,
-        storagePath: storagePath,
-        fileUrl: objectUrl,
-        fileSize: file.size,
-        changeSummary: changeSummary || `Updated by ${this.currentUser.fullName}`,
-        isActive: true,
-        uploadedBy: this.currentUser.id,
-        uploaderName: this.currentUser.fullName,
-        uploaderRole: this.currentUser.role,
-        createdAt: new Date().toISOString()
-      };
+      const { data: urlData } = supabase.storage.from('community-notes').getPublicUrl(storagePath);
+      const publicUrl = urlData ? urlData.publicUrl : '';
 
-      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
-      versions.forEach(v => { v.isActive = false; });
-      versions.unshift(newVersionRecord);
-      localStorage.setItem(STORAGE_DEV_SYLLABUS_VERSIONS, JSON.stringify(versions));
-
-      const audits = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_AUDIT) || '[]');
-      audits.unshift({
-        id: 'audit_' + Date.now(),
-        userId: this.currentUser.id,
-        userName: this.currentUser.fullName,
-        userRole: this.currentUser.role,
-        action: 'UPLOAD_NEW_VERSION',
-        previousVersion: prevVer,
-        newVersion: nextVer,
-        changeSummary: changeSummary || `Updated by ${this.currentUser.fullName}`,
-        createdAt: new Date().toISOString()
+      // Atomic RPC Database insertion and audit logging
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('publish_syllabus_version', {
+        p_file_name: file.name,
+        p_storage_path: storagePath,
+        p_file_url: publicUrl,
+        p_file_size: file.size,
+        p_change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
       });
-      localStorage.setItem(STORAGE_DEV_SYLLABUS_AUDIT, JSON.stringify(audits));
 
-      return newVersionRecord;
+      if (rpcErr) {
+        // Direct table fallback
+        await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
+        const { data: newRow, error: insertErr } = await supabase.from('syllabus_versions').insert([{
+          version: nextVer,
+          file_name: file.name,
+          storage_path: storagePath,
+          file_url: publicUrl,
+          file_size: file.size,
+          change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`,
+          is_active: true,
+          uploaded_by: this.currentUser.id,
+          uploader_name: this.currentUser.fullName,
+          uploader_role: this.currentUser.role
+        }]).select().single();
+
+        if (insertErr) {
+          throw new Error(`Failed to record syllabus version: ${insertErr.message}`);
+        }
+
+        await supabase.from('syllabus_audit_log').insert([{
+          user_id: this.currentUser.id,
+          user_name: this.currentUser.fullName,
+          user_role: this.currentUser.role,
+          action: 'UPLOAD_NEW_VERSION',
+          previous_version: prevVer,
+          new_version: nextVer,
+          change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
+        }]);
+
+        return newRow;
+      }
+
+      return rpcData;
     }
 
     async restoreSyllabusVersionAsync(versionId) {
@@ -1587,38 +1150,26 @@
       }
 
       const supabase = this.getSupabase();
-      if (supabase) {
-        const { data, error } = await supabase.rpc('admin_restore_syllabus_version', {
-          p_version_id: versionId
-        });
+      if (!supabase) throw new Error('Supabase not connected');
 
-        if (error) {
-          // Direct update fallback
-          await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
-          const { data: restored, error: upErr } = await supabase
-            .from('syllabus_versions')
-            .update({ is_active: true })
-            .eq('id', versionId)
-            .select()
-            .single();
+      const { data, error } = await supabase.rpc('admin_restore_syllabus_version', {
+        p_version_id: versionId
+      });
 
-          if (upErr) {
-            throw new Error(`Failed to restore syllabus version: ${upErr.message}`);
-          }
-          return restored;
-        }
+      if (error) {
+        await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
+        const { data: restored, error: upErr } = await supabase
+          .from('syllabus_versions')
+          .update({ is_active: true })
+          .eq('id', versionId)
+          .select()
+          .single();
 
-        return data;
+        if (upErr) throw new Error(`Restore failed: ${upErr.message}`);
+        return restored;
       }
 
-      // Local fallback
-      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
-      const target = versions.find(v => v.id === versionId);
-      if (!target) throw new Error('Target version not found.');
-
-      versions.forEach(v => { v.isActive = (v.id === versionId); });
-      localStorage.setItem(STORAGE_DEV_SYLLABUS_VERSIONS, JSON.stringify(versions));
-      return target;
+      return data;
     }
   }
 
