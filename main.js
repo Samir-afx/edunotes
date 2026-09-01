@@ -1834,6 +1834,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --------------------------------------------------------------------------
+  // 17. SUPABASE BACKEND SETTINGS MODAL
+  // --------------------------------------------------------------------------
+  const supabaseConfigModal = document.getElementById('modal-supabase-config-backdrop');
+  const btnOpenSupabaseConfig = document.getElementById('btn-open-supabase-config');
+  const formSupabaseConfig = document.getElementById('form-supabase-config');
+  const cfgUrlInput = document.getElementById('cfg-supabase-url');
+  const cfgKeyInput = document.getElementById('cfg-supabase-key');
+  const statusIndicator = document.getElementById('supabase-status-indicator');
+
+  function refreshSupabaseConfigUI() {
+    const isConn = window.EduNotesSupabase && window.EduNotesSupabase.isConfigured();
+    if (statusIndicator) {
+      statusIndicator.textContent = isConn ? '🟢 Connected to Live Supabase Backend' : '🟡 Standalone Local Mode (Supabase not configured)';
+      statusIndicator.style.color = isConn ? 'var(--accent-emerald)' : 'var(--accent-amber)';
+    }
+    if (cfgUrlInput) cfgUrlInput.value = localStorage.getItem('EDUNOTES_SUPABASE_URL') || '';
+    if (cfgKeyInput) cfgKeyInput.value = localStorage.getItem('EDUNOTES_SUPABASE_KEY') || '';
+  }
+
+  if (btnOpenSupabaseConfig && supabaseConfigModal) {
+    btnOpenSupabaseConfig.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (userDropdownMenu) userDropdownMenu.style.display = 'none';
+      refreshSupabaseConfigUI();
+      supabaseConfigModal.classList.add('open');
+    });
+  }
+
+  if (formSupabaseConfig) {
+    formSupabaseConfig.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const url = cfgUrlInput.value.trim();
+      const key = cfgKeyInput.value.trim();
+
+      if (url && key) {
+        window.EduNotesSupabase.reconfigure(url, key);
+        showToast('✓ Supabase credentials saved and backend connected!');
+      } else {
+        localStorage.removeItem('EDUNOTES_SUPABASE_URL');
+        localStorage.removeItem('EDUNOTES_SUPABASE_KEY');
+        window.EduNotesSupabase.reconfigure('', '');
+        showToast('Switched to standalone offline mode.');
+      }
+
+      if (supabaseConfigModal) supabaseConfigModal.classList.remove('open');
+      checkAuthAndRoute();
+    });
+  }
+
+  setupModalClose('close-supabase-config-modal', supabaseConfigModal);
+  setupModalClose('btn-cancel-supabase-config', supabaseConfigModal);
+
+  // --------------------------------------------------------------------------
   // 18. INITIALIZE APPLICATION
   // --------------------------------------------------------------------------
   checkAuthAndRoute();

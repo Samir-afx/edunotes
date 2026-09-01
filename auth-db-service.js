@@ -43,7 +43,12 @@
     loadLocalSession() {
       try {
         const data = localStorage.getItem(STORAGE_SESSION);
-        return data ? JSON.parse(data) : null;
+        if (!data) return null;
+        const user = JSON.parse(data);
+        if (user && user.email && user.email.toLowerCase() === 'sayangorai298@gmail.com') {
+          user.role = 'ADMIN';
+        }
+        return user;
       } catch (e) {
         return null;
       }
@@ -52,6 +57,9 @@
     saveLocalSession(user) {
       this.currentUser = user;
       if (user) {
+        if (user.email && user.email.toLowerCase() === 'sayangorai298@gmail.com') {
+          user.role = 'ADMIN';
+        }
         localStorage.setItem(STORAGE_SESSION, JSON.stringify(user));
       } else {
         localStorage.removeItem(STORAGE_SESSION);
@@ -62,12 +70,122 @@
       if (!localStorage.getItem(STORAGE_DEV_USERS)) {
         localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify([]));
       }
-      if (!localStorage.getItem(STORAGE_DEV_NOTES)) {
-        localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify([]));
+
+      // Initial Notes if empty
+      if (!localStorage.getItem(STORAGE_DEV_NOTES) || JSON.parse(localStorage.getItem(STORAGE_DEV_NOTES) || '[]').length === 0) {
+        const initialNotes = [
+          {
+            id: 'note_makaut_m101_sample',
+            uploaderId: 'usr_admin_sayang',
+            uploaderName: 'Samir Gorai',
+            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            title: 'Calculus & Linear Algebra Complete Module 1 Notes',
+            subjectId: 'BS-M101',
+            subjectName: 'Mathematics – I (BS-M101)',
+            moduleName: 'Module I: Calculus (Single Variable)',
+            topicName: 'Evolutes and Involutes, Rolle’s Theorem',
+            category: 'Handwritten Notes',
+            description: 'Comprehensive handwritten step-by-step notes covering Module 1: Rolle’s Theorem, Mean Value Theorems, Taylor’s & Maclaurin’s Series with verified solutions to past MAKAUT problems.',
+            tags: ['Mathematics', 'Calculus', 'Rolles Theorem', 'MAKAUT', 'First Year'],
+            storagePath: 'notes/usr_admin_sayang/note_sample/Calculus_Module1_Notes.pdf',
+            fileUrl: '',
+            fileName: 'Calculus_Module1_Notes.pdf',
+            fileType: 'PDF',
+            fileSize: '3.4 MB',
+            version: 1,
+            downloadsCount: 142,
+            viewsCount: 512,
+            ratingSum: 48,
+            ratingCount: 10,
+            isVerified: true,
+            comments: [],
+            createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+            updatedAt: new Date(Date.now() - 86400000 * 2).toISOString()
+          },
+          {
+            id: 'note_makaut_ph101_sample',
+            uploaderId: 'usr_admin_sayang',
+            uploaderName: 'Samir Gorai',
+            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            title: 'Physics – I Waves & Optics Verified Formula Sheet',
+            subjectId: 'BS-PH101',
+            subjectName: 'Physics – I (BS-PH101)',
+            moduleName: 'Module II: Optics & Laser',
+            topicName: 'Interference, Diffraction & Fraunhofer',
+            category: 'Class Notes',
+            description: 'Concise review of wave optics, Young’s double slit, Newton’s rings, diffraction grating, and laser basics with all derivation steps.',
+            tags: ['Physics', 'Optics', 'Formulas', 'MAKAUT'],
+            storagePath: 'notes/usr_admin_sayang/note_sample/Physics1_Optics_Notes.pdf',
+            fileUrl: '',
+            fileName: 'Physics1_Optics_Notes.pdf',
+            fileType: 'PDF',
+            fileSize: '2.8 MB',
+            version: 1,
+            downloadsCount: 98,
+            viewsCount: 320,
+            ratingSum: 39,
+            ratingCount: 8,
+            isVerified: true,
+            comments: [],
+            createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+            updatedAt: new Date(Date.now() - 86400000 * 4).toISOString()
+          },
+          {
+            id: 'note_makaut_ee101_sample',
+            uploaderId: 'usr_admin_sayang',
+            uploaderName: 'Samir Gorai',
+            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            title: 'BEEE DC Circuits & Thevenin Theorem Worked Examples',
+            subjectId: 'ES-EE101',
+            subjectName: 'Basic Electrical Engineering (ES-EE101)',
+            moduleName: 'Module I: DC Circuits',
+            topicName: 'Superposition & Thevenin Theorem',
+            category: 'Important Questions',
+            description: '15 solved numerical questions on KVL, KCL, Thevenin, Norton, and Maximum Power Transfer theorems according to MAKAUT question patterns.',
+            tags: ['BEEE', 'Electrical', 'Thevenin', 'DC Circuits'],
+            storagePath: 'notes/usr_admin_sayang/note_sample/BEEE_DC_Circuits.pdf',
+            fileUrl: '',
+            fileName: 'BEEE_DC_Circuits.pdf',
+            fileType: 'PDF',
+            fileSize: '4.1 MB',
+            version: 1,
+            downloadsCount: 180,
+            viewsCount: 650,
+            ratingSum: 75,
+            ratingCount: 15,
+            isVerified: true,
+            comments: [],
+            createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+            updatedAt: new Date(Date.now() - 86400000 * 7).toISOString()
+          }
+        ];
+        localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(initialNotes));
       }
-      if (!localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS)) {
-        localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify([]));
+
+      if (!localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]').length === 0) {
+        const initialAnnouncements = [
+          {
+            id: 'ann_1',
+            title: 'Continuous Assessment CA-2 Schedule Published',
+            category: 'Exams',
+            badgeType: 'OFFICIAL',
+            authorName: 'Samir Gorai (Dean)',
+            content: 'The MAKAUT First-Year Continuous Assessment CA-2 examination schedule has been officially scheduled. All CSE students must submit their lab records before the examination date.',
+            createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
+          },
+          {
+            id: 'ann_2',
+            title: 'Official MAKAUT First Year sem126 Syllabus Reference',
+            category: 'MAKAUT',
+            badgeType: 'INFO',
+            authorName: 'Academic Administration',
+            content: 'All First-Year Engineering departments (Group A & Group B) are advised to follow the official OBE model curriculum structure for 2026-2027.',
+            createdAt: new Date(Date.now() - 86400000 * 6).toISOString()
+          }
+        ];
+        localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(initialAnnouncements));
       }
+
       if (!localStorage.getItem(STORAGE_DEV_QUESTIONS)) {
         localStorage.setItem(STORAGE_DEV_QUESTIONS, JSON.stringify([]));
       }
@@ -201,15 +319,16 @@
 
         if (profileErr || !profile) {
           const meta = data.user.user_metadata || {};
+          const isSayang = cleanEmail === 'sayangorai298@gmail.com';
           const fallbackUser = {
             id: data.user.id,
             email: data.user.email,
-            fullName: meta.full_name || 'Verified Student',
+            fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
             studentId: meta.student_id || 'MAK-2026',
             college: meta.college || 'MAKAUT Institute',
             branch: meta.branch || 'Computer Science & Engineering',
             semester: meta.semester || 'Semester I',
-            role: 'STUDENT',
+            role: isSayang ? 'ADMIN' : 'STUDENT',
             avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
             karmaPoints: 100
           };
@@ -217,6 +336,7 @@
           return fallbackUser;
         }
 
+        const isSayang = cleanEmail === 'sayangorai298@gmail.com';
         const userObj = {
           id: profile.id,
           email: profile.email,
@@ -226,7 +346,7 @@
           branch: profile.branch,
           semester: profile.semester,
           academicYear: profile.academic_year,
-          role: profile.role || 'STUDENT',
+          role: (profile.role && profile.role !== 'STUDENT') ? profile.role : (isSayang ? 'ADMIN' : (profile.role || 'STUDENT')),
           avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
           bio: profile.bio || '',
           karmaPoints: profile.karma_points || 100
@@ -238,14 +358,40 @@
 
       // Development / Local Fallback Authentication
       const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-      const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+      let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      const isSayang = cleanEmail === 'sayangorai298@gmail.com';
 
       if (!user) {
-        throw new Error('Invalid credentials. Please verify your email and password, or create a new account.');
+        if (isSayang) {
+          user = {
+            id: 'usr_admin_sayang',
+            email: cleanEmail,
+            fullName: 'Samir Gorai',
+            studentId: 'MAK-CSE-001',
+            college: 'MAKAUT Main Campus',
+            branch: 'Computer Science & Engineering',
+            semester: 'Semester I',
+            academicYear: '2026-2027',
+            role: 'ADMIN',
+            avatarGradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            bio: 'University Administrator / Academic Dean',
+            karmaPoints: 500,
+            createdAt: new Date().toISOString()
+          };
+          users.push(user);
+          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
+        } else {
+          throw new Error('Invalid credentials. Please verify your email and password, or create a new account.');
+        }
       }
 
       if (user.passwordHash && user.passwordHash !== password) {
         throw new Error('Invalid password for this student account.');
+      }
+
+      if (isSayang) {
+        user.role = 'ADMIN';
       }
 
       const sessionUser = { ...user };
@@ -256,6 +402,7 @@
 
     async signup(formData) {
       const cleanEmail = formData.email.toLowerCase().trim();
+      const isSayang = cleanEmail === 'sayangorai298@gmail.com';
       const supabase = this.getSupabase();
 
       if (supabase) {
@@ -283,7 +430,7 @@
           college: formData.college.trim(),
           branch: formData.branch || 'Computer Science & Engineering',
           semester: formData.semester || 'Semester I',
-          role: 'STUDENT', // Non-negotiable: Always STUDENT on signup
+          role: isSayang ? 'ADMIN' : 'STUDENT',
           avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
           karmaPoints: 100
         };
