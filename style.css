@@ -2015,6 +2015,18 @@ button, input, select, textarea { font-family: inherit; border: none; outline: n
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.status-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-archived {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  border: 1px solid var(--border-subtle);
+}
+
 /* --------------------------------------------------------------------------
    14. RESPONSIVE BREAKPOINTS
    -------------------------------------------------------------------------- */

@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const reportModal = document.getElementById('modal-report-backdrop');
   const askModal = document.getElementById('modal-ask-backdrop');
   const pdfModal = document.getElementById('modal-pdf-backdrop');
+  const editSyllabusModal = document.getElementById('modal-edit-syllabus-backdrop');
+  const syllabusHistoryModal = document.getElementById('modal-syllabus-history-backdrop');
 
   // Dropzone Elements
   const fileDropzone = document.getElementById('file-dropzone');
@@ -185,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render corresponding view data
     if (viewName === 'dashboard') await renderDashboardView();
-    else if (viewName === 'syllabus') renderSyllabusView();
+    else if (viewName === 'syllabus') await renderSyllabusView();
     else if (viewName === 'notes') await renderNotesView();
     else if (viewName === 'pyqs') renderQuestionsView();
     else if (viewName === 'chat') renderChatView();
@@ -540,7 +542,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // --------------------------------------------------------------------------
   // 5. RENDER MAKAUT SYLLABUS VIEW (sem126-details Source of Truth)
   // --------------------------------------------------------------------------
-  function renderSyllabusView() {
+  async function renderSyllabusView() {
+    const user = authDb.getCurrentUser();
+
+    // 1. Fetch & display active syllabus metadata
+    try {
+      const activeSyl = await authDb.getActiveSyllabusVersionAsync();
+      const verNum = document.getElementById('syl-active-version-num');
+      const updatedText = document.getElementById('syl-updated-by-text');
+      const dlBtn = document.getElementById('btn-download-official-pdf');
+      if (verNum) verNum.textContent = `${activeSyl.version}.0`;
+      if (updatedText) {
+        const uRole = activeSyl.uploaderRole === 'CR' ? 'Class Representative' : (activeSyl.uploaderRole === 'ADMIN' ? 'Admin' : activeSyl.uploaderRole);
+        updatedText.textContent = `${escapeHTML(activeSyl.uploaderName)} (${uRole})`;
+      }
+      if (dlBtn && activeSyl.fileUrl) {
+        dlBtn.href = activeSyl.fileUrl;
+        dlBtn.setAttribute('download', activeSyl.fileName || 'MAKAUT_Syllabus.pdf');
+      }
+    } catch (e) {
+      console.warn('Error loading active syllabus metadata:', e);
+    }
+
+    // 2. Control role-specific buttons on syllabus page
+    document.querySelectorAll('.role-cr-or-admin-only').forEach((el) => {
+      el.style.display = user && ['CR', 'ADMIN'].includes(user.role) ? 'inline-flex' : 'none';
+    });
+
     const content = document.getElementById('syllabus-tab-content');
     if (!content) return;
 
@@ -1987,7 +2015,332 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 16. MODAL CLOSE HANDLERS
+  // 16. EDIT OFFICIAL SYLLABUS PDF & VERSION MANAGEMENT (CR & ADMIN)
+  // --------------------------------------------------------------------------
+  let selectedSylFile = null;
+  const sylDropzone = document.getElementById('syl-dropzone');
+  const sylFileInput = document.getElementById('syl-file-input');
+  const sylDropzonePrompt = document.getElementById('syl-dropzone-prompt');
+  const sylFilePreview = document.getElementById('syl-file-preview');
+  const sylFileName = document.getElementById('syl-file-name');
+  const sylFileSize = document.getElementById('syl-file-size');
+  const sylBtnRemoveFile = document.getElementById('syl-btn-remove-file');
+  const btnEditSyllabusPdf = document.getElementById('btn-edit-syllabus-pdf');
+  const editSyllabusForm = document.getElementById('edit-syllabus-form');
+
+  if (btnEditSyllabusPdf) {
+    btnEditSyllabusPdf.addEventListener('click', async () => {
+      const user = authDb.getCurrentUser();
+      if (!user || !['CR', 'ADMIN'].includes(user.role)) {
+        showToast('Access Denied: Only a Class Representative or Admin can edit the syllabus.');
+        return;
+      }
+
+      // Populate current version details
+      const active = await authDb.getActiveSyllabusVersionAsync();
+      const currName = document.getElementById('syl-modal-curr-name');
+      const currAuthor = document.getElementById('syl-modal-curr-author');
+      if (currName) currName.textContent = `${active.fileName} (Version ${active.version}.0)`;
+      if (currAuthor) {
+        const uRole = active.uploaderRole === 'CR' ? 'Class Representative' : (active.uploaderRole === 'ADMIN' ? 'Admin' : active.uploaderRole);
+        currAuthor.innerHTML = `Uploaded by: <strong>${escapeHTML(active.uploaderName)} (${uRole})</strong>`;
+      }
+
+      // Reset file selection
+      selectedSylFile = null;
+      if (sylFileInput) sylFileInput.value = '';
+      if (sylFilePreview) sylFilePreview.style.display = 'none';
+      if (sylDropzonePrompt) sylDropzonePrompt.style.display = 'flex';
+      const summaryInput = document.getElementById('syl-change-summary');
+      if (summaryInput) summaryInput.value = '';
+
+      if (editSyllabusModal) editSyllabusModal.classList.add('open');
+      if (window.lucide) lucide.createIcons();
+    });
+  }
+
+  // File Dropzone interaction
+  if (sylDropzone && sylFileInput) {
+    sylDropzone.addEventListener('click', (e) => {
+      if (sylBtnRemoveFile && (e.target === sylBtnRemoveFile || sylBtnRemoveFile.contains(e.target))) {
+        return;
+      }
+      sylFileInput.click();
+    });
+
+    sylDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      sylDropzone.classList.add('dragover');
+    });
+
+    sylDropzone.addEventListener('dragleave', () => {
+      sylDropzone.classList.remove('dragover');
+    });
+
+    sylDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      sylDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleSylFileSelection(e.dataTransfer.files[0]);
+      }
+    });
+
+    sylFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleSylFileSelection(e.target.files[0]);
+      }
+    });
+  }
+
+  async function handleSylFileSelection(file) {
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      showToast('Invalid file type: Please select a valid PDF document (.pdf).');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('File too large: Syllabus PDF must be smaller than 50MB.');
+      return;
+    }
+
+    // Binary Signature Check (%PDF-)
+    try {
+      const slice = file.slice(0, 5);
+      const buffer = await slice.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const header = String.fromCharCode(...bytes);
+      if (header !== '%PDF-') {
+        showToast('Corrupted/Invalid PDF: Missing %PDF- signature header.');
+        return;
+      }
+    } catch (err) {
+      showToast('Error verifying file signature.');
+      return;
+    }
+
+    selectedSylFile = file;
+    if (sylFileName) sylFileName.textContent = file.name;
+    if (sylFileSize) sylFileSize.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+    if (sylDropzonePrompt) sylDropzonePrompt.style.display = 'none';
+    if (sylFilePreview) sylFilePreview.style.display = 'flex';
+    if (window.lucide) lucide.createIcons();
+  }
+
+  if (sylBtnRemoveFile) {
+    sylBtnRemoveFile.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedSylFile = null;
+      if (sylFileInput) sylFileInput.value = '';
+      if (sylFilePreview) sylFilePreview.style.display = 'none';
+      if (sylDropzonePrompt) sylDropzonePrompt.style.display = 'flex';
+    });
+  }
+
+  // Submit Replacement Syllabus
+  if (editSyllabusForm) {
+    editSyllabusForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedSylFile) {
+        showToast('Please select a replacement PDF file before submitting.');
+        return;
+      }
+
+      const summary = document.getElementById('syl-change-summary').value.trim();
+      const submitBtn = document.getElementById('btn-submit-edit-syllabus');
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>Uploading & Publishing Version...</span>';
+        }
+
+        const newVersion = await authDb.publishNewSyllabusPDFAsync({
+          file: selectedSylFile,
+          changeSummary: summary
+        });
+
+        showToast(`✓ Official Syllabus PDF Version ${newVersion.version}.0 published successfully!`);
+        if (editSyllabusModal) editSyllabusModal.classList.remove('open');
+        selectedSylFile = null;
+        editSyllabusForm.reset();
+
+        await renderSyllabusView();
+      } catch (err) {
+        showToast(`Syllabus update failed: ${err.message}`);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i data-lucide="check"></i><span>Confirm & Publish New Version</span>';
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 17. SYLLABUS VERSION HISTORY & AUDIT TRAIL MODAL
+  // --------------------------------------------------------------------------
+  const btnSyllabusHistory = document.getElementById('btn-syllabus-versions-history');
+  let currentSylHistoryTab = 'versions';
+
+  if (btnSyllabusHistory) {
+    btnSyllabusHistory.addEventListener('click', async () => {
+      const user = authDb.getCurrentUser();
+      if (!user || !['CR', 'ADMIN'].includes(user.role)) {
+        showToast('Access Denied: Leadership permissions required.');
+        return;
+      }
+
+      if (syllabusHistoryModal) syllabusHistoryModal.classList.add('open');
+      await renderSyllabusHistoryView();
+    });
+  }
+
+  // History Tab toggles
+  const tabSylVersions = document.getElementById('tab-syl-versions');
+  const tabSylAudits = document.getElementById('tab-syl-audits');
+  const sylVersionsView = document.getElementById('syl-history-versions-view');
+  const sylAuditsView = document.getElementById('syl-history-audits-view');
+
+  if (tabSylVersions && tabSylAudits) {
+    tabSylVersions.addEventListener('click', () => {
+      currentSylHistoryTab = 'versions';
+      tabSylVersions.classList.add('active');
+      tabSylAudits.classList.remove('active');
+      tabSylVersions.style.background = 'rgba(99, 102, 241, 0.15)';
+      tabSylVersions.style.color = '#818cf8';
+      tabSylAudits.style.background = 'transparent';
+      tabSylAudits.style.color = 'var(--text-main)';
+      if (sylVersionsView) sylVersionsView.style.display = 'block';
+      if (sylAuditsView) sylAuditsView.style.display = 'none';
+      renderSyllabusHistoryView();
+    });
+
+    tabSylAudits.addEventListener('click', () => {
+      currentSylHistoryTab = 'audits';
+      tabSylAudits.classList.add('active');
+      tabSylVersions.classList.remove('active');
+      tabSylAudits.style.background = 'rgba(99, 102, 241, 0.15)';
+      tabSylAudits.style.color = '#818cf8';
+      tabSylVersions.style.background = 'transparent';
+      tabSylVersions.style.color = 'var(--text-main)';
+      if (sylVersionsView) sylVersionsView.style.display = 'none';
+      if (sylAuditsView) sylAuditsView.style.display = 'block';
+      renderSyllabusHistoryView();
+    });
+  }
+
+  async function renderSyllabusHistoryView() {
+    const user = authDb.getCurrentUser();
+    if (!user) return;
+
+    if (currentSylHistoryTab === 'versions') {
+      const tbody = document.getElementById('syl-versions-table-body');
+      if (!tbody) return;
+
+      try {
+        const versions = await authDb.getAllSyllabusVersionsAsync();
+        if (versions.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-dim);">No syllabus revisions recorded.</td></tr>`;
+        } else {
+          tbody.innerHTML = versions.map(v => {
+            const roleBadgeClass = v.uploaderRole === 'ADMIN' ? 'role-badge-admin' : (v.uploaderRole === 'CR' ? 'role-badge-cr' : 'role-badge-student');
+            const roleDisplay = v.uploaderRole === 'CR' ? 'CLASS REPRESENTATIVE' : v.uploaderRole;
+            const isCurr = v.isActive;
+
+            let actionCol = '';
+            if (isCurr) {
+              actionCol = `<span style="color: var(--accent-emerald); font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem;"><i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> Active Live</span>`;
+            } else if (user.role === 'ADMIN') {
+              actionCol = `<button class="btn btn-sm btn-outline btn-restore-syl-ver" data-id="${v.id}" data-ver="${v.version}"><i data-lucide="rotate-ccw"></i> Restore</button>`;
+            } else {
+              actionCol = `<span style="color: var(--text-dim); font-size: 0.78rem;">Archived</span>`;
+            }
+
+            return `
+              <tr>
+                <td><strong style="color: var(--accent-indigo); font-size: 0.95rem;">v${v.version}.0</strong></td>
+                <td>
+                  <a href="${v.fileUrl}" target="_blank" download="${escapeHTML(v.fileName)}" style="color: #60a5fa; text-decoration: underline; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
+                    <i data-lucide="file-text" style="width: 15px; height: 15px;"></i>
+                    ${escapeHTML(v.fileName)}
+                  </a>
+                  <span style="display: block; font-size: 0.75rem; color: var(--text-dim);">${(v.fileSize / (1024 * 1024)).toFixed(2)} MB</span>
+                </td>
+                <td>
+                  <strong style="color: #fff; font-size: 0.88rem; display: block;">${escapeHTML(v.uploaderName)}</strong>
+                  <span class="role-badge ${roleBadgeClass}" style="margin-top: 0.2rem;">${roleDisplay}</span>
+                </td>
+                <td style="font-size: 0.84rem; color: var(--text-muted); max-width: 260px;">${escapeHTML(v.changeSummary || 'Official curriculum revision')}</td>
+                <td>
+                  <span class="status-pill ${isCurr ? 'status-active' : 'status-archived'}" style="padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; background: ${isCurr ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'}; color: ${isCurr ? '#34d399' : 'var(--text-dim)'}; border: 1px solid ${isCurr ? 'rgba(16,185,129,0.3)' : 'var(--border-subtle)'};">
+                    ${isCurr ? 'CURRENT ACTIVE' : 'ARCHIVED'}
+                  </span>
+                </td>
+                <td>${actionCol}</td>
+              </tr>
+            `;
+          }).join('');
+
+          if (window.lucide) lucide.createIcons();
+
+          // Attach Restore Listeners (Admin only)
+          document.querySelectorAll('.btn-restore-syl-ver').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const vId = btn.getAttribute('data-id');
+              const vNum = btn.getAttribute('data-ver');
+              try {
+                btn.disabled = true;
+                btn.innerHTML = '<span>Restoring...</span>';
+                await authDb.restoreSyllabusVersionAsync(vId);
+                showToast(`✓ Successfully restored syllabus to Version ${vNum}.0!`);
+                await renderSyllabusHistoryView();
+                await renderSyllabusView();
+              } catch (err) {
+                showToast(`Restore Error: ${err.message}`);
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="rotate-ccw"></i> Restore';
+                if (window.lucide) lucide.createIcons();
+              }
+            });
+          });
+        }
+      } catch (e) {
+        console.warn('Error rendering syllabus versions:', e);
+      }
+    } else {
+      const tbody = document.getElementById('syl-audits-table-body');
+      if (!tbody) return;
+
+      try {
+        const audits = await authDb.getSyllabusAuditLogsAsync();
+        if (audits.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-dim);">No syllabus audit logs recorded.</td></tr>`;
+        } else {
+          tbody.innerHTML = audits.map(a => `
+            <tr>
+              <td style="font-size: 0.8rem; color: var(--text-dim);">${new Date(a.createdAt).toLocaleString()}</td>
+              <td>
+                <strong style="color: #fff; font-size: 0.88rem;">${escapeHTML(a.userName)}</strong>
+                <span class="role-badge ${a.userRole === 'ADMIN' ? 'role-badge-admin' : 'role-badge-cr'}" style="margin-left: 0.4rem;">${a.userRole === 'CR' ? 'CLASS REPRESENTATIVE' : a.userRole}</span>
+              </td>
+              <td><span style="font-weight: 700; color: #a5b4fc; font-size: 0.8rem;">${escapeHTML(a.action)}</span></td>
+              <td><span style="font-size: 0.85rem; font-weight: 600;">v${a.previousVersion}.0 → v${a.newVersion}.0</span></td>
+              <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHTML(a.changeSummary || '')}</td>
+            </tr>
+          `).join('');
+          if (window.lucide) lucide.createIcons();
+        }
+      } catch (e) {
+        console.warn('Error rendering syllabus audits:', e);
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 18. MODAL CLOSE HANDLERS
   // --------------------------------------------------------------------------
   function setupModalClose(btnId, modalElem) {
     const btn = document.getElementById(btnId);
@@ -2014,6 +2367,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupModalClose('close-pdf-modal', pdfModal);
   setupModalClose('close-role-confirm-modal', roleConfirmModal);
   setupModalClose('btn-cancel-role-confirm', roleConfirmModal);
+  setupModalClose('close-edit-syllabus-modal', editSyllabusModal);
+  setupModalClose('btn-cancel-edit-syllabus', editSyllabusModal);
+  setupModalClose('close-syllabus-history-modal', syllabusHistoryModal);
+  setupModalClose('btn-close-syllabus-history', syllabusHistoryModal);
 
   // --------------------------------------------------------------------------
   // 17. GLOBAL SEARCH & TOAST HELPER

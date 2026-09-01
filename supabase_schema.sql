@@ -487,6 +487,162 @@ CREATE POLICY "Users can update and delete their own files" ON storage.objects
 FOR DELETE TO authenticated USING (bucket_id = 'community-notes' AND auth.uid() = owner);
 
 -- ----------------------------------------------------------------------------
+-- OFFICIAL SYLLABUS PDF VERSIONING & AUDIT SYSTEM (CR & ADMIN AUTHORIZED)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.syllabus_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    version INT NOT NULL,
+    file_name TEXT NOT NULL,
+    storage_path TEXT NOT NULL,
+    file_url TEXT NOT NULL,
+    file_size BIGINT DEFAULT 0,
+    change_summary TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    uploaded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    uploader_name TEXT NOT NULL,
+    uploader_role TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.syllabus_audit_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    user_name TEXT NOT NULL,
+    user_role TEXT NOT NULL,
+    action TEXT NOT NULL, -- 'UPLOAD_NEW_VERSION', 'RESTORE_VERSION'
+    previous_version INT,
+    new_version INT NOT NULL,
+    change_summary TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS Enablement
+ALTER TABLE public.syllabus_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.syllabus_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- 1. All authenticated students and users can view active/historical syllabus metadata
+CREATE POLICY "Syllabus versions viewable by all" ON public.syllabus_versions
+  FOR SELECT TO authenticated USING (true);
+
+-- 2. ONLY Class Representative (CR) and ADMIN can insert new syllabus versions (STUDENTS & MODERATORS DENIED)
+CREATE POLICY "CR and Admin can insert syllabus versions" ON public.syllabus_versions
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_cr_or_admin(auth.uid()));
+
+-- 3. ONLY ADMIN can update syllabus versions (e.g. activating/restoring previous versions)
+CREATE POLICY "Admin can update syllabus versions" ON public.syllabus_versions
+  FOR UPDATE TO authenticated
+  USING (public.is_admin(auth.uid()))
+  WITH CHECK (public.is_admin(auth.uid()));
+
+-- 4. ONLY ADMIN can delete syllabus versions (CR cannot delete version history)
+CREATE POLICY "Admin can delete syllabus versions" ON public.syllabus_versions
+  FOR DELETE TO authenticated
+  USING (public.is_admin(auth.uid()));
+
+-- Audit log policies: CR and Admin can view and record audits
+CREATE POLICY "CR and Admin can view syllabus audit log" ON public.syllabus_audit_log
+  FOR SELECT TO authenticated
+  USING (public.is_cr_or_admin(auth.uid()));
+
+CREATE POLICY "CR and Admin can insert syllabus audit log" ON public.syllabus_audit_log
+  FOR INSERT TO authenticated
+  WITH CHECK (public.is_cr_or_admin(auth.uid()));
+
+-- Secure Database RPC for atomic syllabus version publishing
+CREATE OR REPLACE FUNCTION public.publish_syllabus_version(
+  p_file_name TEXT,
+  p_storage_path TEXT,
+  p_file_url TEXT,
+  p_file_size BIGINT,
+  p_change_summary TEXT
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_caller_role TEXT;
+  v_caller_name TEXT;
+  v_next_version INT;
+  v_prev_version INT;
+  v_new_row public.syllabus_versions%ROWTYPE;
+BEGIN
+  -- 1. Strict Database Authorization Enforcement
+  IF NOT public.is_cr_or_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access Denied: Only a verified Class Representative (CR) or Administrator can publish a new syllabus PDF.';
+  END IF;
+
+  -- 2. Retrieve caller metadata
+  SELECT role, full_name INTO v_caller_role, v_caller_name
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  -- 3. Calculate next version and locate previous active version
+  SELECT COALESCE(MAX(version), 0) + 1 INTO v_next_version FROM public.syllabus_versions;
+  SELECT version INTO v_prev_version FROM public.syllabus_versions WHERE is_active = TRUE LIMIT 1;
+  IF v_prev_version IS NULL THEN
+    v_prev_version := 1;
+  END IF;
+
+  -- 4. Deactivate existing active versions
+  UPDATE public.syllabus_versions SET is_active = FALSE WHERE is_active = TRUE;
+
+  -- 5. Insert new active version
+  INSERT INTO public.syllabus_versions (
+    version, file_name, storage_path, file_url, file_size, change_summary, is_active, uploaded_by, uploader_name, uploader_role
+  ) VALUES (
+    v_next_version, p_file_name, p_storage_path, p_file_url, p_file_size, p_change_summary, TRUE, auth.uid(), v_caller_name, v_caller_role
+  ) RETURNING * INTO v_new_row;
+
+  -- 6. Insert audit trail
+  INSERT INTO public.syllabus_audit_log (
+    user_id, user_name, user_role, action, previous_version, new_version, change_summary
+  ) VALUES (
+    auth.uid(), v_caller_name, v_caller_role, 'UPLOAD_NEW_VERSION', v_prev_version, v_next_version, p_change_summary
+  );
+
+  RETURN to_jsonb(v_new_row);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Secure Database RPC for Admin to restore an archived syllabus version
+CREATE OR REPLACE FUNCTION public.admin_restore_syllabus_version(p_version_id UUID)
+RETURNS JSONB AS $$
+DECLARE
+  v_caller_name TEXT;
+  v_prev_version INT;
+  v_target_version INT;
+  v_target_row public.syllabus_versions%ROWTYPE;
+BEGIN
+  -- 1. Enforce Admin only
+  IF NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'Access Denied: Only an Administrator can restore previous syllabus versions.';
+  END IF;
+
+  SELECT full_name INTO v_caller_name FROM public.profiles WHERE id = auth.uid();
+  SELECT version INTO v_prev_version FROM public.syllabus_versions WHERE is_active = TRUE LIMIT 1;
+
+  -- Locate target version
+  SELECT * INTO v_target_row FROM public.syllabus_versions WHERE id = p_version_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Target syllabus version not found.';
+  END IF;
+  v_target_version := v_target_row.version;
+
+  -- Deactivate current and activate target version
+  UPDATE public.syllabus_versions SET is_active = FALSE WHERE is_active = TRUE;
+  UPDATE public.syllabus_versions SET is_active = TRUE WHERE id = p_version_id RETURNING * INTO v_target_row;
+
+  -- Record in audit log
+  INSERT INTO public.syllabus_audit_log (
+    user_id, user_name, user_role, action, previous_version, new_version, change_summary
+  ) VALUES (
+    auth.uid(), v_caller_name, 'ADMIN', 'RESTORE_VERSION', v_prev_version, v_target_version, 'Restored version ' || v_target_version
+  );
+
+  RETURN to_jsonb(v_target_row);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- ----------------------------------------------------------------------------
 -- INITIAL ADMIN ROLE PROMOTION (SAFE & NON-DESTRUCTIVE)
 -- Promotes existing registered account 'sayangorai298@gmail.com' to ADMIN
 -- Preserves all existing profile data, student ID, karma points, and credentials

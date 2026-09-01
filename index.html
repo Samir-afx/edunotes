@@ -468,14 +468,30 @@
         <div class="container">
           <div class="section-title-bar">
             <div>
-              <span class="pill-tag"><i data-lucide="shield-check"></i> SOURCE OF TRUTH: MAKAUT sem126-details</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;">
+                <span class="pill-tag"><i data-lucide="shield-check"></i> SOURCE OF TRUTH: MAKAUT sem126-details</span>
+                <span class="pill-tag" id="syl-version-badge" style="background: rgba(99, 102, 241, 0.12); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.3);">
+                  <i data-lucide="git-branch"></i> Version <strong id="syl-active-version-num">1.0</strong>
+                </span>
+                <span class="pill-tag" id="syl-updated-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
+                  <i data-lucide="user-check"></i> <span id="syl-updated-by-text">MAKAUT Board</span>
+                </span>
+              </div>
               <h2 class="section-heading">Official MAKAUT First-Year Syllabus</h2>
               <p class="section-subtext">Comprehensive course outcomes, Bloom levels, contact hours, modules, and experiments for B.Tech First Year.</p>
             </div>
-            <div class="syllabus-header-actions">
+            <div class="syllabus-header-actions" style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
               <button class="btn btn-outline" id="btn-open-pdf-viewer-modal">
                 <i data-lucide="file-text"></i>
                 <span>Open Original Syllabus PDF</span>
+              </button>
+              <button class="btn btn-outline role-cr-or-admin-only" id="btn-syllabus-versions-history" style="display: none;" title="View historical syllabus revisions">
+                <i data-lucide="history"></i>
+                <span>Version History</span>
+              </button>
+              <button class="btn btn-primary role-cr-or-admin-only" id="btn-edit-syllabus-pdf" style="display: none;" title="Upload replacement syllabus PDF">
+                <i data-lucide="upload-cloud"></i>
+                <span>Edit Syllabus PDF</span>
               </button>
             </div>
           </div>
@@ -1427,6 +1443,146 @@
     </div>
   </div>
 
+  <!-- MODAL 9: EDIT OFFICIAL SYLLABUS PDF MODAL (CR & ADMIN) -->
+  <div class="modal-backdrop" id="modal-edit-syllabus-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;"><i data-lucide="award"></i> Academic Leadership · Syllabus Management</div>
+          <h2 class="modal-title">Edit & Replace Official Syllabus PDF</h2>
+          <p class="modal-subtitle">Upload an updated syllabus PDF document. A new version will be published for all students, and the previous document will be preserved in history.</p>
+        </div>
+        <button class="modal-close-icon" id="close-edit-syllabus-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+
+      <!-- Current Active Version Callout -->
+      <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.8rem 1rem; margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+          <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Currently Active Document</span>
+          <div style="font-size: 0.95rem; font-weight: 600; color: #fff;" id="syl-modal-curr-name">MAKAUT-sem126.pdf (Version 1)</div>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);" id="syl-modal-curr-author">
+          Uploaded by: <strong>MAKAUT Academic Board</strong>
+        </div>
+      </div>
+
+      <form class="modal-form" id="edit-syllabus-form">
+        <!-- File Upload Zone -->
+        <div class="form-field">
+          <label class="field-label">Select Replacement PDF Document <span class="required">*</span></label>
+          <div class="upload-dropzone" id="syl-dropzone" style="padding: 1.8rem 1rem;">
+            <input type="file" id="syl-file-input" accept="application/pdf,.pdf" required class="file-input-hidden">
+            <div class="dropzone-content" id="syl-dropzone-prompt">
+              <div class="dropzone-icon-box" style="background: rgba(99, 102, 241, 0.1); color: #818cf8;"><i data-lucide="file-up"></i></div>
+              <h4>Drag & drop replacement PDF or <span class="browse-link">browse</span></h4>
+              <p>Supports official PDF files up to 50MB (Validated binary signature %PDF-)</p>
+            </div>
+            <div class="selected-file-preview" id="syl-file-preview" style="display: none;">
+              <i data-lucide="file-check" class="text-success"></i>
+              <span class="file-name" id="syl-file-name">filename.pdf</span>
+              <span class="file-size" id="syl-file-size">0 MB</span>
+              <button type="button" class="btn-remove-file" id="syl-btn-remove-file"><i data-lucide="trash-2"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change Description / Release Summary -->
+        <div class="form-field">
+          <label for="syl-change-summary" class="field-label">Version Notes & Change Summary <span class="required">*</span></label>
+          <textarea id="syl-change-summary" required rows="3" placeholder="Describe the updates in this syllabus version (e.g. Updated continuous assessment structure for B.Tech Semester I)..." class="form-textarea"></textarea>
+        </div>
+
+        <!-- Confirmation Notice -->
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-md); padding: 0.9rem; margin-bottom: 1.2rem; display: flex; gap: 0.8rem; align-items: flex-start;">
+          <i data-lucide="alert-triangle" style="color: #fbbf24; width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px;"></i>
+          <div style="font-size: 0.84rem; color: #fef08a;">
+            <strong>Replace Official Syllabus?</strong>
+            <p style="margin: 0.2rem 0 0 0; color: rgba(254, 240, 138, 0.85);">
+              Publishing will increment the document version and update the active syllabus for all students. Previous versions remain recoverable by Administrators in the Version History log.
+            </p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-edit-syllabus">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-edit-syllabus">
+            <i data-lucide="check"></i>
+            <span>Confirm & Publish New Version</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 10: SYLLABUS VERSION HISTORY & AUDIT LOG MODAL (CR & ADMIN) -->
+  <div class="modal-backdrop" id="modal-syllabus-history-backdrop">
+    <div class="modal-card modal-xl" style="max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge"><i data-lucide="history"></i> Version Control</div>
+          <h2 class="modal-title">Syllabus PDF Version History & Audit Log</h2>
+          <p class="modal-subtitle">View all published syllabus revisions, verify uploader accountability, and restore previous versions (Admin).</p>
+        </div>
+        <button class="modal-close-icon" id="close-syllabus-history-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+
+      <!-- Tabs for Versions vs Audit Trail -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.6rem;">
+        <button type="button" class="btn btn-sm btn-outline active" id="tab-syl-versions" style="background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+          <i data-lucide="layers"></i> Revisions & Versions
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" id="tab-syl-audits">
+          <i data-lucide="shield-alert"></i> Audit Trail
+        </button>
+      </div>
+
+      <!-- Versions List View -->
+      <div id="syl-history-versions-view" style="overflow-y: auto; flex: 1;">
+        <div class="admin-users-table-box">
+          <table class="admin-users-table">
+            <thead>
+              <tr>
+                <th>Version</th>
+                <th>File Document</th>
+                <th>Published By</th>
+                <th>Change Summary</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="syl-versions-table-body">
+              <!-- Dynamically populated via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Audit Log View -->
+      <div id="syl-history-audits-view" style="display: none; overflow-y: auto; flex: 1;">
+        <div class="admin-users-table-box">
+          <table class="admin-users-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Academic User</th>
+                <th>Action</th>
+                <th>Version Change</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="syl-audits-table-body">
+              <!-- Dynamically populated via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 1rem;">
+        <button type="button" class="btn btn-outline" id="btn-close-syllabus-history">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
@@ -1434,9 +1590,9 @@
   <!-- APPLICATION JAVASCRIPT MODULES (CACHE-BUSTED)                      -->
   <!-- ================================================================= -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="makaut-syllabus-data.js?v=20260901_V9_CR"></script>
-  <script src="supabase-client.js?v=20260901_V9_CR"></script>
-  <script src="auth-db-service.js?v=20260901_V9_CR"></script>
-  <script src="main.js?v=20260901_V9_CR"></script>
+  <script src="makaut-syllabus-data.js?v=20260901_V10_SYLLABUS"></script>
+  <script src="supabase-client.js?v=20260901_V10_SYLLABUS"></script>
+  <script src="auth-db-service.js?v=20260901_V10_SYLLABUS"></script>
+  <script src="main.js?v=20260901_V10_SYLLABUS"></script>
 </body>
 </html>

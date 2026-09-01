@@ -21,6 +21,8 @@
   const STORAGE_DEV_PROGRESS = 'edunotes_progress_v6';
   const STORAGE_DEV_RATINGS = 'edunotes_ratings_v6';
   const STORAGE_DEV_REPORTS = 'edunotes_reports_v6';
+  const STORAGE_DEV_SYLLABUS_VERSIONS = 'edunotes_syllabus_versions_v6';
+  const STORAGE_DEV_SYLLABUS_AUDIT = 'edunotes_syllabus_audit_v6';
 
   // AGGRESSIVELY PURGE ALL LEGACY MOCK/SEED DATA & OVERRIDE KEYS FROM LOCALSTORAGE
   try {
@@ -1286,6 +1288,337 @@
       }
 
       return true;
+    }
+
+    // ------------------------------------------------------------------------
+    // OFFICIAL SYLLABUS PDF VERSIONING & AUDIT SYSTEM (CR & ADMIN)
+    // ------------------------------------------------------------------------
+    async getActiveSyllabusVersionAsync() {
+      const defaultOfficial = {
+        id: 'syl_v1_official',
+        version: 1,
+        fileName: 'MAKAUT-sem126.pdf',
+        storagePath: 'assets/MAKAUT-sem126.pdf',
+        fileUrl: 'https://samir-afx.github.io/edunotes/assets/MAKAUT-sem126.pdf',
+        fileSize: 2457600,
+        changeSummary: 'Official First-Year AICTE/MAKAUT Syllabus (sem126-details)',
+        isActive: true,
+        uploadedBy: 'system',
+        uploaderName: 'MAKAUT Academic Board',
+        uploaderRole: 'OFFICIAL',
+        createdAt: '2026-08-01T00:00:00.000Z'
+      };
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('syllabus_versions')
+            .select('*')
+            .eq('is_active', true)
+            .order('version', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!error && data) {
+            return {
+              id: data.id,
+              version: data.version,
+              fileName: data.file_name,
+              storagePath: data.storage_path,
+              fileUrl: data.file_url,
+              fileSize: data.file_size || 0,
+              changeSummary: data.change_summary || '',
+              isActive: Boolean(data.is_active),
+              uploadedBy: data.uploaded_by,
+              uploaderName: data.uploader_name || 'Academic Leadership',
+              uploaderRole: data.uploader_role || 'CR',
+              createdAt: data.created_at
+            };
+          }
+        } catch (e) {
+          console.warn('Supabase syllabus version fetch warning:', e);
+        }
+      }
+
+      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
+      const active = versions.find(v => v.isActive);
+      return active || defaultOfficial;
+    }
+
+    async getAllSyllabusVersionsAsync() {
+      const defaultOfficial = {
+        id: 'syl_v1_official',
+        version: 1,
+        fileName: 'MAKAUT-sem126.pdf',
+        storagePath: 'assets/MAKAUT-sem126.pdf',
+        fileUrl: 'https://samir-afx.github.io/edunotes/assets/MAKAUT-sem126.pdf',
+        fileSize: 2457600,
+        changeSummary: 'Official First-Year AICTE/MAKAUT Syllabus (sem126-details)',
+        isActive: true,
+        uploadedBy: 'system',
+        uploaderName: 'MAKAUT Academic Board',
+        uploaderRole: 'OFFICIAL',
+        createdAt: '2026-08-01T00:00:00.000Z'
+      };
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('syllabus_versions')
+            .select('*')
+            .order('version', { ascending: false });
+
+          if (!error && Array.isArray(data) && data.length > 0) {
+            return data.map(d => ({
+              id: d.id,
+              version: d.version,
+              fileName: d.file_name,
+              storagePath: d.storage_path,
+              fileUrl: d.file_url,
+              fileSize: d.file_size || 0,
+              changeSummary: d.change_summary || '',
+              isActive: Boolean(d.is_active),
+              uploadedBy: d.uploaded_by,
+              uploaderName: d.uploader_name || 'Academic Leadership',
+              uploaderRole: d.uploader_role || 'CR',
+              createdAt: d.created_at
+            }));
+          }
+        } catch (e) {
+          console.warn('Supabase all syllabus versions warning:', e);
+        }
+      }
+
+      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
+      if (versions.length === 0) {
+        return [defaultOfficial];
+      }
+      return versions;
+    }
+
+    async getSyllabusAuditLogsAsync() {
+      if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
+        throw new Error('Access Denied: Only a Class Representative or Administrator can view the syllabus audit log.');
+      }
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('syllabus_audit_log')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!error && Array.isArray(data)) {
+            return data.map(a => ({
+              id: a.id,
+              userId: a.user_id,
+              userName: a.user_name,
+              userRole: a.user_role,
+              action: a.action,
+              previousVersion: a.previous_version,
+              newVersion: a.new_version,
+              changeSummary: a.change_summary,
+              createdAt: a.created_at
+            }));
+          }
+        } catch (e) {
+          console.warn('Supabase syllabus audit log fetch warning:', e);
+        }
+      }
+
+      return JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_AUDIT) || '[]');
+    }
+
+    async publishNewSyllabusPDFAsync({ file, changeSummary }) {
+      if (!this.currentUser || (this.currentUser.role !== 'CR' && this.currentUser.role !== 'ADMIN')) {
+        throw new Error('Access Denied: Only a verified Class Representative (CR) or Administrator can publish a syllabus PDF.');
+      }
+
+      if (!file) {
+        throw new Error('No PDF file provided.');
+      }
+
+      // 1. File Name and Size Validation
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        throw new Error('Invalid file format: Only valid PDF documents (.pdf) are allowed.');
+      }
+
+      if (file.size <= 0) {
+        throw new Error('Corrupted file: The selected file is empty.');
+      }
+
+      const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+      if (file.size > MAX_SIZE) {
+        throw new Error('File size exceeds the 50MB limit.');
+      }
+
+      // 2. Binary Signature Validation (%PDF-)
+      try {
+        const slice = file.slice(0, 5);
+        const buffer = await slice.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const header = String.fromCharCode(...bytes);
+        if (header !== '%PDF-') {
+          throw new Error('Invalid PDF document: The file does not have a valid %PDF- binary header signature.');
+        }
+      } catch (err) {
+        throw new Error(`PDF validation error: ${err.message}`);
+      }
+
+      const allVersions = await this.getAllSyllabusVersionsAsync();
+      const nextVer = (allVersions.length > 0 ? Math.max(...allVersions.map(v => v.version)) : 1) + 1;
+      const prevVer = (await this.getActiveSyllabusVersionAsync()).version || 1;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `syllabus/official-v${nextVer}-${Date.now()}-${safeName}`;
+
+      let publicUrl = '';
+      const supabase = this.getSupabase();
+      if (supabase) {
+        try {
+          // Direct binary File upload to Supabase Storage
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('community-notes')
+            .upload(storagePath, file, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+
+          if (uploadErr) {
+            throw new Error(`Supabase Storage upload failed: ${uploadErr.message}`);
+          }
+
+          const { data: urlData } = supabase.storage.from('community-notes').getPublicUrl(storagePath);
+          publicUrl = urlData ? urlData.publicUrl : '';
+
+          // Atomic RPC Database insertion and audit logging
+          const { data: rpcData, error: rpcErr } = await supabase.rpc('publish_syllabus_version', {
+            p_file_name: file.name,
+            p_storage_path: storagePath,
+            p_file_url: publicUrl,
+            p_file_size: file.size,
+            p_change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
+          });
+
+          if (rpcErr) {
+            // Direct table fallback
+            await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
+            const { data: newRow, error: insertErr } = await supabase.from('syllabus_versions').insert([{
+              version: nextVer,
+              file_name: file.name,
+              storage_path: storagePath,
+              file_url: publicUrl,
+              file_size: file.size,
+              change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`,
+              is_active: true,
+              uploaded_by: this.currentUser.id,
+              uploader_name: this.currentUser.fullName,
+              uploader_role: this.currentUser.role
+            }]).select().single();
+
+            if (insertErr) {
+              throw new Error(`Failed to record syllabus version in database: ${insertErr.message}`);
+            }
+
+            // Record audit log
+            await supabase.from('syllabus_audit_log').insert([{
+              user_id: this.currentUser.id,
+              user_name: this.currentUser.fullName,
+              user_role: this.currentUser.role,
+              action: 'UPLOAD_NEW_VERSION',
+              previous_version: prevVer,
+              new_version: nextVer,
+              change_summary: changeSummary || `Updated by ${this.currentUser.fullName}`
+            }]);
+
+            return newRow;
+          }
+
+          return rpcData;
+        } catch (e) {
+          throw new Error(`Syllabus update failed: ${e.message}`);
+        }
+      }
+
+      // Local fallback
+      const objectUrl = URL.createObjectURL(file);
+      const newVersionRecord = {
+        id: 'syl_v' + nextVer + '_' + Date.now(),
+        version: nextVer,
+        fileName: file.name,
+        storagePath: storagePath,
+        fileUrl: objectUrl,
+        fileSize: file.size,
+        changeSummary: changeSummary || `Updated by ${this.currentUser.fullName}`,
+        isActive: true,
+        uploadedBy: this.currentUser.id,
+        uploaderName: this.currentUser.fullName,
+        uploaderRole: this.currentUser.role,
+        createdAt: new Date().toISOString()
+      };
+
+      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
+      versions.forEach(v => { v.isActive = false; });
+      versions.unshift(newVersionRecord);
+      localStorage.setItem(STORAGE_DEV_SYLLABUS_VERSIONS, JSON.stringify(versions));
+
+      const audits = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_AUDIT) || '[]');
+      audits.unshift({
+        id: 'audit_' + Date.now(),
+        userId: this.currentUser.id,
+        userName: this.currentUser.fullName,
+        userRole: this.currentUser.role,
+        action: 'UPLOAD_NEW_VERSION',
+        previousVersion: prevVer,
+        newVersion: nextVer,
+        changeSummary: changeSummary || `Updated by ${this.currentUser.fullName}`,
+        createdAt: new Date().toISOString()
+      });
+      localStorage.setItem(STORAGE_DEV_SYLLABUS_AUDIT, JSON.stringify(audits));
+
+      return newVersionRecord;
+    }
+
+    async restoreSyllabusVersionAsync(versionId) {
+      if (!this.currentUser || this.currentUser.role !== 'ADMIN') {
+        throw new Error('Access Denied: Only an Administrator can restore previous syllabus versions.');
+      }
+
+      const supabase = this.getSupabase();
+      if (supabase) {
+        const { data, error } = await supabase.rpc('admin_restore_syllabus_version', {
+          p_version_id: versionId
+        });
+
+        if (error) {
+          // Direct update fallback
+          await supabase.from('syllabus_versions').update({ is_active: false }).eq('is_active', true);
+          const { data: restored, error: upErr } = await supabase
+            .from('syllabus_versions')
+            .update({ is_active: true })
+            .eq('id', versionId)
+            .select()
+            .single();
+
+          if (upErr) {
+            throw new Error(`Failed to restore syllabus version: ${upErr.message}`);
+          }
+          return restored;
+        }
+
+        return data;
+      }
+
+      // Local fallback
+      const versions = JSON.parse(localStorage.getItem(STORAGE_DEV_SYLLABUS_VERSIONS) || '[]');
+      const target = versions.find(v => v.id === versionId);
+      if (!target) throw new Error('Target version not found.');
+
+      versions.forEach(v => { v.isActive = (v.id === versionId); });
+      localStorage.setItem(STORAGE_DEV_SYLLABUS_VERSIONS, JSON.stringify(versions));
+      return target;
     }
   }
 
