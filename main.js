@@ -1572,7 +1572,8 @@ document.addEventListener('DOMContentLoaded', () => {
             (u.fullName && u.fullName.toLowerCase().includes(q)) ||
             (u.email && u.email.toLowerCase().includes(q)) ||
             (u.studentId && u.studentId.toLowerCase().includes(q)) ||
-            (u.college && u.college.toLowerCase().includes(q))
+            (u.college && u.college.toLowerCase().includes(q)) ||
+            (u.branch && u.branch.toLowerCase().includes(q))
           );
         }
 

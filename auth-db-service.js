@@ -204,21 +204,89 @@
       if (!localStorage.getItem(STORAGE_DEV_RATINGS)) {
         localStorage.setItem(STORAGE_DEV_RATINGS, JSON.stringify({}));
       }
-      if (!localStorage.getItem(STORAGE_DEV_REPORTS)) {
-        localStorage.setItem(STORAGE_DEV_REPORTS, JSON.stringify([]));
-      }
-
-      // Promote existing user sayangorai298@gmail.com to ADMIN while preserving all profile data
-      const adminEmail = 'sayangorai298@gmail.com';
+      // Seed registered student accounts if missing
       try {
-        const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-        const targetIdx = users.findIndex(u => u.email && u.email.toLowerCase() === adminEmail);
-        if (targetIdx > -1) {
-          users[targetIdx].role = 'ADMIN';
-          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(users));
+        const existingUsers = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
+        const seedUsers = [
+          {
+            id: 'usr_admin_sayang',
+            email: 'sayangorai298@gmail.com',
+            fullName: 'Samir Gorai',
+            studentId: 'MAK-CSE-001',
+            college: 'MAKAUT Main Campus',
+            branch: 'Computer Science & Engineering',
+            semester: 'Semester I',
+            academicYear: '2026-2027',
+            role: 'ADMIN',
+            avatarGradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+            bio: 'Academic Dean & University Administrator',
+            karmaPoints: 500,
+            createdAt: new Date(Date.now() - 86400000 * 30).toISOString()
+          },
+          {
+            id: 'usr_student_dushyant',
+            email: 'dushyant.yadav@gmail.com',
+            fullName: 'Dushyant Yadav',
+            studentId: 'MAK-2026-108',
+            college: 'Heritage Institute of Technology',
+            branch: 'Computer Science & Engineering',
+            semester: 'Semester I',
+            academicYear: '2026-2027',
+            role: 'STUDENT',
+            avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            bio: 'First Year CSE Student at HITK',
+            karmaPoints: 160,
+            createdAt: new Date(Date.now() - 86400000 * 14).toISOString()
+          },
+          {
+            id: 'usr_student_rahul',
+            email: 'rahul.sharma@makaut.edu',
+            fullName: 'Rahul Sharma',
+            studentId: 'MAK-2026-215',
+            college: 'Techno Main Salt Lake',
+            branch: 'Computer Science & Engineering',
+            semester: 'Semester I',
+            academicYear: '2026-2027',
+            role: 'STUDENT',
+            avatarGradient: 'linear-gradient(135deg, #10b981, #34d399)',
+            bio: 'Passionate about C Programming & Algorithms',
+            karmaPoints: 120,
+            createdAt: new Date(Date.now() - 86400000 * 10).toISOString()
+          },
+          {
+            id: 'usr_student_priya',
+            email: 'priya.mukherjee@makaut.edu',
+            fullName: 'Priya Mukherjee',
+            studentId: 'MAK-2026-342',
+            college: 'Kalyani Government Engineering College',
+            branch: 'Computer Science & Engineering',
+            semester: 'Semester I',
+            academicYear: '2026-2027',
+            role: 'STUDENT',
+            avatarGradient: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+            bio: 'ECE to CSE department student contributor',
+            karmaPoints: 190,
+            createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
+          }
+        ];
+
+        let updated = false;
+        seedUsers.forEach(seed => {
+          const matchIdx = existingUsers.findIndex(u => u.email && u.email.toLowerCase() === seed.email.toLowerCase());
+          if (matchIdx === -1) {
+            existingUsers.push(seed);
+            updated = true;
+          } else if (seed.email === 'sayangorai298@gmail.com' && existingUsers[matchIdx].role !== 'ADMIN') {
+            existingUsers[matchIdx].role = 'ADMIN';
+            updated = true;
+          }
+        });
+
+        if (updated || !localStorage.getItem(STORAGE_DEV_USERS)) {
+          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(existingUsers));
         }
 
-        if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === adminEmail) {
+        if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === 'sayangorai298@gmail.com') {
           this.currentUser.role = 'ADMIN';
           this.saveLocalSession(this.currentUser);
         }

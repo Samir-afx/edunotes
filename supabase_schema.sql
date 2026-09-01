@@ -51,8 +51,22 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
 -- ----------------------------------------------------------------------------
--- SECURE ROLE PROTECTION & PROMOTION FUNCTIONS (DATABASE-ENFORCED)
+-- SECURE ROLE PROTECTION & PROMOTION FUNCTIONS (DATABASE-ENFORCED, NO RECURSION)
 -- ----------------------------------------------------------------------------
+-- Non-recursive Security Definer helper to check if a user is an ADMIN
+CREATE OR REPLACE FUNCTION public.is_admin(user_id UUID DEFAULT auth.uid())
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF user_id IS NULL THEN
+    RETURN FALSE;
+  END IF;
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = user_id AND role = 'ADMIN'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+
 -- Trigger function: Prevents non-admins from changing the 'role' column on profiles
 CREATE OR REPLACE FUNCTION public.protect_profile_role_update()
 RETURNS TRIGGER AS $$
@@ -60,16 +74,20 @@ BEGIN
   -- If the role is being changed
   IF NEW.role IS DISTINCT FROM OLD.role THEN
     -- Check if the calling user is an existing ADMIN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'ADMIN'
-    ) THEN
+    IF NOT public.is_admin(auth.uid()) THEN
       RAISE EXCEPTION 'Access Denied: Only an existing ADMIN can promote or demote user roles.';
+    END IF;
+
+    -- Protect primary admin sayangorai298@gmail.com from accidental demotion if only 1 admin remains
+    IF OLD.email = 'sayangorai298@gmail.com' AND NEW.role != 'ADMIN' THEN
+      IF (SELECT COUNT(*) FROM public.profiles WHERE role = 'ADMIN') <= 1 THEN
+        RAISE EXCEPTION 'Safety Violation: Cannot demote the primary administrator when no other active ADMIN exists.';
+      END IF;
     END IF;
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS tr_protect_profile_role ON public.profiles;
 CREATE TRIGGER tr_protect_profile_role
@@ -80,9 +98,12 @@ CREATE TRIGGER tr_protect_profile_role
 -- Secure RPC function for ADMIN user role management
 CREATE OR REPLACE FUNCTION public.admin_set_user_role(target_user_id UUID, new_role TEXT)
 RETURNS VOID AS $$
+DECLARE
+  target_email TEXT;
+  admin_count INT;
 BEGIN
   -- Verify caller is an active ADMIN
-  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'ADMIN') THEN
+  IF NOT public.is_admin(auth.uid()) THEN
     RAISE EXCEPTION 'Access Denied: Caller does not possess ADMIN privileges.';
   END IF;
 
@@ -91,11 +112,20 @@ BEGIN
     RAISE EXCEPTION 'Invalid role specified. Must be STUDENT, MODERATOR, or ADMIN.';
   END IF;
 
+  -- Check if target is primary admin
+  SELECT email INTO target_email FROM public.profiles WHERE id = target_user_id;
+  IF target_email = 'sayangorai298@gmail.com' AND new_role != 'ADMIN' THEN
+    SELECT COUNT(*) INTO admin_count FROM public.profiles WHERE role = 'ADMIN';
+    IF admin_count <= 1 THEN
+      RAISE EXCEPTION 'Safety Violation: Cannot demote the primary administrator when no other active ADMIN exists.';
+    END IF;
+  END IF;
+
   UPDATE public.profiles
   SET role = new_role, updated_at = NOW()
   WHERE id = target_user_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ----------------------------------------------------------------------------
 -- 2. COURSES / SUBJECTS TABLE (Official MAKAUT First Year)
