@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduNotes | Official MAKAUT CSE Student Platform & Community Notes Hub</title>
+  <meta name="description" content="Official MAKAUT B.Tech First Year Syllabus (sem126), Outcome-Based Education (OBE), Community Notes sharing, PYQs, Q&A, and Academic Progress platform.">
+
+  <!-- Google Fonts: Outfit, Space Grotesk & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase JS CDN (for Supabase backend connection) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+
+  <!-- ================================================================= -->
+  <!-- AUTHENTICATION GATEWAY VIEW (LOGIN / SIGNUP / FORGOT PASSWORD)   -->
+  <!-- Displayed when user is NOT authenticated                          -->
+  <!-- ================================================================= -->
+  <div id="auth-portal-view" class="auth-portal-container" style="display: none;">
+    <div class="auth-backdrop-glow"></div>
+
+    <div class="auth-card-box">
+      <div class="auth-brand-header">
+        <div class="auth-logo-badge">
+          <i data-lucide="graduation-cap"></i>
+        </div>
+        <h1 class="auth-app-title">EduNotes<span class="brand-dot">.</span></h1>
+        <p class="auth-tagline">"Your Semester. Your Notes. Your Community."</p>
+        <div class="makaut-badge-pill">
+          <i data-lucide="shield-check"></i>
+          <span>Official MAKAUT B.Tech CSE Academic Hub</span>
+        </div>
+      </div>
+
+      <!-- AUTH TABS -->
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab-btn active" id="tab-btn-login" role="tab" aria-selected="true">Sign In</button>
+        <button class="auth-tab-btn" id="tab-btn-signup" role="tab" aria-selected="false">Create Account</button>
+        <button class="auth-tab-btn" id="tab-btn-forgot" role="tab" aria-selected="false">Forgot Password</button>
+      </div>
+
+      <!-- FORM 1: LOGIN FORM -->
+      <form class="auth-form" id="login-form" autocomplete="on">
+        <div class="form-field">
+          <label for="login-email" class="field-label">Student Email / Roll ID</label>
+          <div class="input-with-icon">
+            <i data-lucide="mail"></i>
+            <input type="email" id="login-email" required placeholder="name@makaut.edu" class="form-input">
+          </div>
+        </div>
+
+        <div class="form-field">
+          <div class="field-label-row">
+            <label for="login-password" class="field-label">Password</label>
+            <a href="#" class="forgot-link" id="link-goto-forgot">Forgot?</a>
+          </div>
+          <div class="input-with-icon">
+            <i data-lucide="lock"></i>
+            <input type="password" id="login-password" required placeholder="Enter password" class="form-input">
+            <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Toggle password visibility"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+
+        <div class="auth-alert-box error" id="login-error-box" style="display: none;"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="btn-login-submit">
+          <span>Sign In to Dashboard</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </form>
+
+      <!-- FORM 2: SIGNUP FORM -->
+      <form class="auth-form" id="signup-form" style="display: none;" autocomplete="on">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="signup-fullname" class="field-label">Full Name <span class="required">*</span></label>
+            <input type="text" id="signup-fullname" required placeholder="e.g. Rohan Sen" class="form-input">
+          </div>
+          <div class="form-field">
+            <label for="signup-roll" class="field-label">Student ID / Roll No. <span class="required">*</span></label>
+            <input type="text" id="signup-roll" required placeholder="e.g. MAK-2026-CSE-105" class="form-input">
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="signup-email" class="field-label">Email Address <span class="required">*</span></label>
+          <input type="email" id="signup-email" required placeholder="student@makaut.edu" class="form-input">
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="signup-college" class="field-label">College / Institute <span class="required">*</span></label>
+            <input type="text" id="signup-college" required placeholder="e.g. IEM / Heritage / MAKAUT Campus" class="form-input">
+          </div>
+          <div class="form-field">
+            <label for="signup-semester" class="field-label">Semester <span class="required">*</span></label>
+            <select id="signup-semester" class="form-select">
+              <option value="Semester I" selected>Semester I (First Year)</option>
+              <option value="Semester II">Semester II (First Year)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="signup-password" class="field-label">Password <span class="required">*</span></label>
+            <div class="input-with-icon">
+              <i data-lucide="lock"></i>
+              <input type="password" id="signup-password" required minlength="6" placeholder="At least 6 chars" class="form-input">
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="signup-confirm-password" class="field-label">Confirm Password <span class="required">*</span></label>
+            <div class="input-with-icon">
+              <i data-lucide="check"></i>
+              <input type="password" id="signup-confirm-password" required minlength="6" placeholder="Re-enter password" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-alert-box error" id="signup-error-box" style="display: none;"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="btn-signup-submit">
+          <i data-lucide="user-plus"></i>
+          <span>Create Student Account</span>
+        </button>
+      </form>
+
+      <!-- FORM 3: FORGOT PASSWORD FORM -->
+      <form class="auth-form" id="forgot-form" style="display: none;">
+        <p class="auth-instructions">Enter your registered student email address. We will send a verified password reset link.</p>
+        <div class="form-field">
+          <label for="forgot-email" class="field-label">Registered Email</label>
+          <div class="input-with-icon">
+            <i data-lucide="mail"></i>
+            <input type="email" id="forgot-email" required placeholder="student@makaut.edu" class="form-input">
+          </div>
+        </div>
+
+        <div class="auth-alert-box success" id="forgot-success-box" style="display: none;"></div>
+        <div class="auth-alert-box error" id="forgot-error-box" style="display: none;"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block">
+          <span>Send Password Reset Link</span>
+          <i data-lucide="send"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ================================================================= -->
+  <!-- AUTHENTICATED APP APPLICATION SHELL                               -->
+  <!-- Protected View: Accessible ONLY when student/user is logged in     -->
+  <!-- ================================================================= -->
+  <div id="authenticated-app-view" style="display: none;">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="app-header" id="app-header">
+      <div class="nav-container">
+        <div class="nav-left-group">
+          <a href="#dashboard" class="brand-logo" data-view="dashboard">
+            <div class="logo-badge">
+              <i data-lucide="graduation-cap"></i>
+            </div>
+            <span class="brand-name">EduNotes<span class="brand-dot">.</span></span>
+          </a>
+
+          <div class="makaut-official-badge" title="Official MAKAUT B.Tech CSE Curriculum (sem126)">
+            <span class="live-dot"></span>
+            <span>MAKAUT · sem126</span>
+          </div>
+        </div>
+
+        <!-- Global Search Input -->
+        <div class="nav-search-box">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="app-global-search" placeholder="Search syllabus, notes, PYQs, Q&A..." class="search-input" aria-label="Global Search">
+          <span class="search-kbd">⌘K</span>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="nav-links-menu" id="nav-links-menu" aria-label="Primary Navigation">
+          <a href="#dashboard" class="nav-item active" data-view="dashboard">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="#syllabus" class="nav-item" data-view="syllabus">
+            <i data-lucide="book-marked"></i>
+            <span>MAKAUT Syllabus</span>
+          </a>
+          <a href="#notes" class="nav-item" data-view="notes">
+            <i data-lucide="files"></i>
+            <span>Community Notes</span>
+          </a>
+          <a href="#pyqs" class="nav-item" data-view="pyqs">
+            <i data-lucide="help-circle"></i>
+            <span>PYQs & Q&A</span>
+          </a>
+          <a href="#chat" class="nav-item" data-view="chat">
+            <i data-lucide="message-square"></i>
+            <span>Class Chat</span>
+          </a>
+          <a href="#my-uploads" class="nav-item" data-view="my-uploads">
+            <i data-lucide="folder-up"></i>
+            <span>My Uploads</span>
+          </a>
+          <a href="#admin-panel" class="nav-item role-admin-only" data-view="admin-panel" style="display: none;">
+            <i data-lucide="shield-alert"></i>
+            <span>Admin</span>
+          </a>
+        </nav>
+
+        <!-- Right User Actions -->
+        <div class="nav-right-actions">
+          <!-- Prominent "+ Add Notes" Button -->
+          <button class="btn btn-primary btn-add-notes-top" id="btn-trigger-upload-modal" title="Share your notes with classmates">
+            <i data-lucide="plus-circle"></i>
+            <span>+ Add Notes</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button class="icon-toggle-btn" id="btn-theme-toggle" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+            <i data-lucide="sun" id="theme-icon-sun" style="display: none;"></i>
+            <i data-lucide="moon" id="theme-icon-moon"></i>
+          </button>
+
+          <!-- User Profile Dropdown Trigger -->
+          <div class="user-profile-menu-trigger" id="user-profile-menu-trigger" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
+            <div class="user-avatar-circle" id="nav-user-avatar">ST</div>
+            <div class="user-info-text">
+              <span class="user-name-display" id="nav-user-name">Student</span>
+              <span class="user-role-badge" id="nav-user-role">Student</span>
+            </div>
+            <i data-lucide="chevron-down" class="dropdown-arrow"></i>
+          </div>
+
+          <!-- User Profile Dropdown Box -->
+          <div class="user-dropdown-menu" id="user-dropdown-menu" style="display: none;">
+            <div class="dropdown-user-header">
+              <strong id="dropdown-full-name">Student Name</strong>
+              <span id="dropdown-email">student@makaut.edu</span>
+              <span class="dropdown-meta" id="dropdown-college-branch">MAKAUT · CSE Sem I</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <a href="#my-uploads" class="dropdown-item" data-view="my-uploads">
+              <i data-lucide="folder-up"></i>
+              <span>My Uploaded Notes</span>
+            </a>
+            <a href="#bookmarks" class="dropdown-item" data-view="bookmarks">
+              <i data-lucide="bookmark"></i>
+              <span>Saved Bookmarks</span>
+            </a>
+            <a href="#progress" class="dropdown-item" data-view="progress">
+              <i data-lucide="bar-chart-2"></i>
+              <span>Syllabus Progress</span>
+            </a>
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item text-danger" id="btn-user-logout">
+              <i data-lucide="log-out"></i>
+              <span>Sign Out</span>
+            </button>
+          </div>
+
+          <!-- Mobile Nav Toggle -->
+          <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle menu">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+
+    <!-- =============================================================== -->
+    <!-- MAIN CONTENT CONTAINER WITH DYNAMIC ROUTING / VIEWS             -->
+    <!-- =============================================================== -->
+    <main class="app-main-content">
+
+      <!-- ============================================================= -->
+      <!-- VIEW 1: DASHBOARD VIEW                                        -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-dashboard">
+        <div class="container">
+          <!-- Hero Welcome Banner -->
+          <div class="dashboard-welcome-banner">
+            <div class="welcome-left">
+              <div class="banner-badge">
+                <i data-lucide="sparkles"></i>
+                <span>MAKAUT First-Year Academic Portal</span>
+              </div>
+              <h1 class="welcome-title">Welcome back, <span id="dash-welcome-name">Student</span> 👋</h1>
+              <p class="welcome-subtitle">
+                Access official MAKAUT syllabus modules, browse community notes shared by your peers, track your syllabus completion, and participate in academic discussions.
+              </p>
+              <div class="welcome-actions">
+                <button class="btn btn-white btn-lg" id="dash-btn-upload">
+                  <i data-lucide="plus-circle"></i>
+                  <span>+ Upload Study Notes</span>
+                </button>
+                <a href="#syllabus" class="btn btn-glass-white btn-lg" data-view="syllabus">
+                  <i data-lucide="book-open"></i>
+                  <span>Explore Official Syllabus</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- Quick Progress Widget -->
+            <div class="welcome-progress-widget">
+              <div class="progress-circle-box">
+                <svg viewBox="0 0 100 100" class="circular-chart">
+                  <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                  <path class="circle-fill" id="dash-progress-arc" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                  <text x="18" y="20.35" class="circle-percentage" id="dash-progress-text">0%</text>
+                </svg>
+              </div>
+              <div class="widget-progress-info">
+                <h4>Semester I Syllabus</h4>
+                <p>Personal completion across theory & practical modules</p>
+                <a href="#progress" class="widget-link" data-view="progress">View Detailed Breakdown →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons Bar (Phase 51) -->
+          <div class="quick-action-strip">
+            <a href="#syllabus" class="quick-act-card" data-view="syllabus">
+              <div class="q-icon icon-indigo"><i data-lucide="book-open"></i></div>
+              <div class="q-info"><strong>MAKAUT Syllabus</strong><span>Official sem126 details</span></div>
+            </a>
+            <a href="#" class="quick-act-card" id="quick-act-add-note">
+              <div class="q-icon icon-emerald"><i data-lucide="plus-circle"></i></div>
+              <div class="q-info"><strong>+ Add Notes</strong><span>Share with classmates</span></div>
+            </a>
+            <a href="#pyqs" class="quick-act-card" data-view="pyqs">
+              <div class="q-icon icon-purple"><i data-lucide="file-question"></i></div>
+              <div class="q-info"><strong>PYQs & Q&A</strong><span>Previous year exams</span></div>
+            </a>
+            <a href="#chat" class="quick-act-card" data-view="chat">
+              <div class="q-icon icon-cyan"><i data-lucide="message-square"></i></div>
+              <div class="q-info"><strong>Class Community</strong><span>Subject study channels</span></div>
+            </a>
+            <a href="#progress" class="quick-act-card" data-view="progress">
+              <div class="q-icon icon-amber"><i data-lucide="check-circle-2"></i></div>
+              <div class="q-info"><strong>My Progress</strong><span>Track topic completion</span></div>
+            </a>
+          </div>
+
+          <!-- Main Dashboard Grid -->
+          <div class="dashboard-sections-grid">
+            <!-- Left: Classmates are Sharing Feed & Announcements -->
+            <div class="dash-main-column">
+              <!-- Classmates are Sharing -->
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="card-header-title">
+                    <i data-lucide="users" class="text-primary"></i>
+                    <div>
+                      <h3>📚 Classmates Are Sharing</h3>
+                      <p>Recently uploaded notes and solutions from fellow MAKAUT students</p>
+                    </div>
+                  </div>
+                  <a href="#notes" class="btn btn-sm btn-outline" data-view="notes">View All Notes →</a>
+                </div>
+                <div class="dash-feed-list" id="dash-recent-notes-list">
+                  <!-- Injected via JavaScript -->
+                </div>
+              </div>
+
+              <!-- Official Announcements (Phase 37) -->
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="card-header-title">
+                    <i data-lucide="megaphone" class="text-amber"></i>
+                    <div>
+                      <h3>Important News & Announcements</h3>
+                      <p>Official MAKAUT exam notifications, practical schedules, and academic updates</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="announcements-list" id="dash-announcements-list">
+                  <!-- Injected via JavaScript -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Upcoming Academic Calendar & Quick Resources -->
+            <div class="dash-side-column">
+              <!-- Academic Calendar (Phase 48) -->
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="card-header-title">
+                    <i data-lucide="calendar" class="text-emerald"></i>
+                    <div>
+                      <h3>Academic Calendar</h3>
+                      <p>Exam dates, lab evaluations, and assignments</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="calendar-events-list" id="dash-calendar-list">
+                  <!-- Injected via JavaScript -->
+                </div>
+              </div>
+
+              <!-- Official Resource Hub Links (Phase 38) -->
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="card-header-title">
+                    <i data-lucide="external-link" class="text-cyan"></i>
+                    <div>
+                      <h3>Official Academic Resources</h3>
+                      <p>NPTEL, SWAYAM, and Virtual Labs portals</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="resource-links-grid">
+                  <a href="https://nptel.ac.in" target="_blank" rel="noopener noreferrer" class="resource-link-item">
+                    <div class="res-badge">NPTEL</div>
+                    <div><strong>NPTEL Online Courses</strong><span>AICTE Approved Video Lectures</span></div>
+                  </a>
+                  <a href="https://www.vlab.co.in" target="_blank" rel="noopener noreferrer" class="resource-link-item">
+                    <div class="res-badge vlab">VLAB</div>
+                    <div><strong>Virtual Labs (IIT)</strong><span>Simulated Physics & Electronics Labs</span></div>
+                  </a>
+                  <a href="https://swayam.gov.in" target="_blank" rel="noopener noreferrer" class="resource-link-item">
+                    <div class="res-badge swayam">SWAYAM</div>
+                    <div><strong>SWAYAM Portal</strong><span>MOOCs for Engineering Students</span></div>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 2: OFFICIAL MAKAUT SYLLABUS & OBE (sem126-details)        -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-syllabus" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag"><i data-lucide="shield-check"></i> SOURCE OF TRUTH: MAKAUT sem126-details</span>
+              <h2 class="section-heading">Official MAKAUT First-Year Syllabus</h2>
+              <p class="section-subtext">Comprehensive course outcomes, Bloom levels, contact hours, modules, and experiments for B.Tech First Year.</p>
+            </div>
+            <div class="syllabus-header-actions">
+              <button class="btn btn-outline" id="btn-open-pdf-viewer-modal">
+                <i data-lucide="file-text"></i>
+                <span>Open Original Syllabus PDF</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Syllabus Navigation Tabs (Semester I / Semester II / OBE / Bridge / Group Rotation) -->
+          <div class="syllabus-tabs-strip">
+            <button class="syl-tab-btn active" data-syl-tab="sem1">
+              <i data-lucide="book-open"></i>
+              <span>Semester I (Theory & Labs)</span>
+            </button>
+            <button class="syl-tab-btn" data-syl-tab="sem2">
+              <i data-lucide="book-open"></i>
+              <span>Semester II (Theory & Labs)</span>
+            </button>
+            <button class="syl-tab-btn" data-syl-tab="obe">
+              <i data-lucide="target"></i>
+              <span>OBE & Programme Outcomes (PO1-PO12)</span>
+            </button>
+            <button class="syl-tab-btn" data-syl-tab="bridge">
+              <i data-lucide="git-merge"></i>
+              <span>Class XII Bridge & Prerequisites</span>
+            </button>
+            <button class="syl-tab-btn" data-syl-tab="rotation">
+              <i data-lucide="refresh-cw"></i>
+              <span>Group Rotation Rules</span>
+            </button>
+          </div>
+
+          <!-- Syllabus Tab Contents Container -->
+          <div class="syllabus-tab-content" id="syllabus-tab-content">
+            <!-- Dynamically populated by main.js from window.MAKAUT_SYLLABUS -->
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 3: COMMUNITY NOTES EXPLORE REPOSITORY                    -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-notes" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag"><i data-lucide="library"></i> Community Notes Repository</span>
+              <h2 class="section-heading">Notes Shared By Your Classmates</h2>
+              <p class="section-subtext">Filter through handwritten formulas, solved step-by-step questions, lab manuals, and cheatsheets.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-explore-notes-upload">
+              <i data-lucide="plus-circle"></i>
+              <span>+ Add Notes</span>
+            </button>
+          </div>
+
+          <!-- Sort Filter Bar -->
+          <div class="discovery-tabs-bar">
+            <div class="tab-buttons">
+              <button class="tab-btn active" data-sort="popular"><i data-lucide="flame"></i><span>🔥 Popular</span></button>
+              <button class="tab-btn" data-sort="recent"><i data-lucide="sparkles"></i><span>🆕 Recently Added</span></button>
+              <button class="tab-btn" data-sort="highest-rated"><i data-lucide="star"></i><span>⭐ Highest Rated</span></button>
+              <button class="tab-btn" data-sort="most-downloaded"><i data-lucide="download"></i><span>📥 Most Downloaded</span></button>
+              <button class="tab-btn" data-sort="bookmarked"><i data-lucide="bookmark"></i><span>🔖 Bookmarked</span></button>
+            </div>
+          </div>
+
+          <!-- Filter Controls -->
+          <div class="filter-controls-card">
+            <div class="filter-group">
+              <label for="notes-subject-filter" class="filter-label"><i data-lucide="book-open"></i> Subject</label>
+              <select id="notes-subject-filter" class="form-select">
+                <option value="all">All MAKAUT Courses</option>
+                <option value="BS-M101">BS-M101 Mathematics – I</option>
+                <option value="BS-PH101">BS-PH101 Physics – I</option>
+                <option value="ES-EE101">ES-EE101 Basic Electrical Engg (BEEE)</option>
+                <option value="HM-HU101">HM-HU101 English for Communication</option>
+                <option value="BS-M201">BS-M201 Mathematics – II</option>
+                <option value="BS-CH101">BS-CH101 Chemistry – I</option>
+                <option value="ES-CS101">ES-CS101 Programming for Problem Solving (C)</option>
+                <option value="ES-EC201">ES-EC201 Basic Electronics Engineering</option>
+                <option value="ES-ME191">ES-ME191 Engineering Graphics & Design</option>
+              </select>
+            </div>
+
+            <div class="filter-group category-filter-group">
+              <label class="filter-label"><i data-lucide="tag"></i> Category</label>
+              <div class="category-pills" id="notes-category-pills">
+                <button class="cat-pill active" data-cat="all">All</button>
+                <button class="cat-pill" data-cat="Handwritten Notes">✍️ Handwritten</button>
+                <button class="cat-pill" data-cat="Lecture Notes">🎓 Lecture Notes</button>
+                <button class="cat-pill" data-cat="Important Questions">❓ Important Questions / PYQs</button>
+                <button class="cat-pill" data-cat="Lab Materials">🔬 Lab Materials</button>
+                <button class="cat-pill" data-cat="Short Notes">⚡ Short Notes</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes Grid -->
+          <div class="notes-grid" id="community-notes-grid">
+            <!-- Dynamically populated Note Cards -->
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 4: PYQs & ACADEMIC Q&A FORUM (Phases 34 & 36)            -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-pyqs" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag"><i data-lucide="help-circle"></i> Academic Discussion & Exam Prep</span>
+              <h2 class="section-heading">Previous Year Questions & Academic Q&A</h2>
+              <p class="section-subtext">Ask questions on calculus formulas, optics derivations, or BEEE circuits. Answer and earn karma points.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-open-ask-modal">
+              <i data-lucide="help-circle"></i>
+              <span>+ Ask a Question</span>
+            </button>
+          </div>
+
+          <div class="qa-grid-container">
+            <div class="questions-list-col" id="questions-list-container">
+              <!-- Dynamically populated Q&A items -->
+            </div>
+
+            <!-- Q&A Sidebar Info -->
+            <div class="qa-sidebar-col">
+              <div class="sidebar-card">
+                <div class="sidebar-header">
+                  <i data-lucide="award" class="icon-accent"></i>
+                  <h3>Q&A Karma System</h3>
+                </div>
+                <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+                  Earn verified student reputation points by asking clear questions and providing verified solutions.
+                </p>
+                <div class="karma-perk-list">
+                  <div><span>Ask Question</span><strong>+20 pts</strong></div>
+                  <div><span>Provide Answer</span><strong>+30 pts</strong></div>
+                  <div><span>Accepted Solution</span><strong>+50 pts</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 5: COMMUNITY CHAT (Phase 35)                             -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-chat" style="display: none;">
+        <div class="container">
+          <div class="chat-app-box">
+            <!-- Channels Sidebar -->
+            <div class="chat-channels-sidebar">
+              <div class="channels-header">
+                <h3>💬 Study Channels</h3>
+              </div>
+              <div class="channels-list" id="chat-channels-list">
+                <button class="channel-btn active" data-channel="general"># general</button>
+                <button class="channel-btn" data-channel="mathematics"># mathematics</button>
+                <button class="channel-btn" data-channel="physics"># physics</button>
+                <button class="channel-btn" data-channel="beee"># beee</button>
+                <button class="channel-btn" data-channel="english"># english</button>
+                <button class="channel-btn" data-channel="engineering-graphics"># engineering-graphics</button>
+                <button class="channel-btn" data-channel="exam-preparation"># exam-preparation</button>
+              </div>
+            </div>
+
+            <!-- Messages Window -->
+            <div class="chat-messages-window">
+              <div class="chat-window-header">
+                <h4 id="active-channel-title"># general</h4>
+                <span class="online-indicator"><span class="live-dot"></span> Authenticated Classmates Online</span>
+              </div>
+
+              <div class="chat-messages-body" id="chat-messages-body">
+                <!-- Messages populated dynamically -->
+              </div>
+
+              <form class="chat-input-bar" id="chat-send-form">
+                <input type="text" id="chat-text-input" required placeholder="Send message to classmates in #general..." class="form-input">
+                <button type="submit" class="btn btn-primary" aria-label="Send Message">
+                  <i data-lucide="send"></i>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 6: "MY UPLOADS" & USER CONTRIBUTION (Phases 12 & 42)     -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-my-uploads" style="display: none;">
+        <div class="container">
+          <!-- Student Contribution Stats Header -->
+          <div class="profile-contribution-banner">
+            <div class="profile-header-left">
+              <div class="student-avatar-lg" id="my-profile-avatar-lg">ST</div>
+              <div>
+                <div class="profile-name-row">
+                  <h2 class="profile-name" id="my-profile-full-name">Student Name</h2>
+                  <span class="badge-pill-verified"><i data-lucide="shield-check"></i> <span id="my-profile-role-pill">Verified Student</span></span>
+                </div>
+                <p class="profile-subtext" id="my-profile-college-line">MAKAUT · Computer Science & Engineering</p>
+              </div>
+            </div>
+
+            <div class="profile-stats-grid">
+              <div class="p-stat-card">
+                <i data-lucide="folder-up"></i>
+                <div><span class="p-val" id="stats-uploads-count">0</span><span class="p-lbl">Notes Uploaded</span></div>
+              </div>
+              <div class="p-stat-card">
+                <i data-lucide="download-cloud"></i>
+                <div><span class="p-val" id="stats-downloads-count">0</span><span class="p-lbl">Total Downloads</span></div>
+              </div>
+              <div class="p-stat-card">
+                <i data-lucide="star"></i>
+                <div><span class="p-val" id="stats-avg-rating">5.0</span><span class="p-lbl">Average Rating</span></div>
+              </div>
+              <div class="p-stat-card">
+                <i data-lucide="award"></i>
+                <div><span class="p-val" id="stats-karma-badge">Student Contributor 📚</span><span class="p-lbl">Community Badge</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- My Uploads Table / Management List -->
+          <div class="my-uploads-container">
+            <div class="table-header-bar">
+              <div>
+                <h3 class="sub-heading">My Uploaded Study Materials</h3>
+                <p class="sub-text">You can edit metadata, replace outdated files with versioning, or delete your own uploads.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-my-uploads-upload-trigger">
+                <i data-lucide="plus-circle"></i>
+                <span>+ Upload New Note</span>
+              </button>
+            </div>
+
+            <div class="my-uploads-table-card">
+              <div class="my-uploads-list" id="my-uploads-rendered-list">
+                <!-- Injected via JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ============================================================= -->
+      <!-- VIEW 7: PERSONAL PROGRESS & BOOKMARKS (Phases 39 & 40)        -->
+      <!-- ============================================================= -->
+      <section class="app-view-section" id="view-progress" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag"><i data-lucide="bar-chart-2"></i> Individual Academic Tracker</span>
+              <h2 class="section-heading">My Syllabus & Topic Progress</h2>
+              <p class="section-subtext">Track and check off individual topics and lab experiments as you study. Your progress is personal to your account.</p>
+            </div>
+          </div>
+
+          <div class="progress-subjects-grid" id="progress-subjects-grid">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 8: BOOKMARKS -->
+      <section class="app-view-section" id="view-bookmarks" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag"><i data-lucide="bookmark"></i> Personal Library</span>
+              <h2 class="section-heading">My Saved Bookmarks</h2>
+              <p class="section-subtext">Quick access to notes, formulas, and PYQs you have bookmarked.</p>
+            </div>
+          </div>
+          <div class="notes-grid" id="bookmarks-notes-grid">
+            <!-- Bookmarked items rendered here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 9: ADMIN & MODERATOR PANEL (Phases 43 & 44) -->
+      <section class="app-view-section" id="view-admin-panel" style="display: none;">
+        <div class="container">
+          <div class="section-title-bar">
+            <div>
+              <span class="pill-tag" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3);">
+                <i data-lucide="shield-alert"></i> RESTRICTED: Academic Administration & Moderation
+              </span>
+              <h2 class="section-heading">University Administration Panel</h2>
+              <p class="section-subtext">Manage verified users, review reported content, broadcast official announcements, and view system health.</p>
+            </div>
+          </div>
+
+          <!-- Admin Tabs -->
+          <div class="admin-grid-layout">
+            <!-- Reported Content Queue -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <div class="card-header-title">
+                  <i data-lucide="flag" class="text-danger"></i>
+                  <div>
+                    <h3>Content Moderation Queue</h3>
+                    <p>Reported study materials flagged by students</p>
+                  </div>
+                </div>
+              </div>
+              <div class="reports-list" id="admin-reports-list">
+                <!-- Reports injected here -->
+              </div>
+            </div>
+
+            <!-- Broadcast Announcement Form -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <div class="card-header-title">
+                  <i data-lucide="send" class="text-primary"></i>
+                  <div>
+                    <h3>Broadcast Official Announcement</h3>
+                    <p>Post university notifications directly to all student dashboards</p>
+                  </div>
+                </div>
+              </div>
+              <form class="modal-form" id="admin-broadcast-form">
+                <div class="form-field">
+                  <label for="admin-ann-title" class="field-label">Announcement Title</label>
+                  <input type="text" id="admin-ann-title" required placeholder="e.g. Schedule for Continuous Assessment CA-2" class="form-input">
+                </div>
+                <div class="form-row">
+                  <div class="form-field">
+                    <label for="admin-ann-cat" class="field-label">Category</label>
+                    <select id="admin-ann-cat" class="form-select">
+                      <option value="MAKAUT">MAKAUT Official</option>
+                      <option value="Exams">Exams & Assessment</option>
+                      <option value="Practical">Practical & Labs</option>
+                      <option value="Events">Events & Hackathons</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="admin-ann-badge" class="field-label">Badge Type</label>
+                    <select id="admin-ann-badge" class="form-select">
+                      <option value="OFFICIAL">OFFICIAL</option>
+                      <option value="URGENT">URGENT</option>
+                      <option value="INFO">INFO</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="admin-ann-content" class="field-label">Announcement Content</label>
+                  <textarea id="admin-ann-content" required rows="3" placeholder="Full details of notice..." class="form-textarea"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="megaphone"></i>
+                  <span>Broadcast to All Students</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Admin User Management & Role Assignment (Database-Protected) -->
+          <div class="dash-card" style="margin-top: 1.5rem;">
+            <div class="dash-card-header">
+              <div class="card-header-title">
+                <i data-lucide="users-round" class="text-primary"></i>
+                <div>
+                  <h3>👥 Student & Faculty User Management</h3>
+                  <p>Search verified academic accounts and safely manage role permissions (STUDENT ⇄ MODERATOR ⇄ ADMIN).</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search & Filters -->
+            <div class="admin-user-controls-bar">
+              <div class="input-with-icon" style="flex: 1;">
+                <i data-lucide="search"></i>
+                <input type="text" id="admin-user-search-input" placeholder="Search user by name, email, roll ID, or college..." class="form-input">
+              </div>
+              <div style="min-width: 180px;">
+                <select id="admin-user-role-filter" class="form-select">
+                  <option value="ALL">All Roles</option>
+                  <option value="STUDENT">Students Only</option>
+                  <option value="MODERATOR">Faculty Moderators</option>
+                  <option value="ADMIN">Academic Deans (Admin)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="admin-users-table-box">
+              <table class="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Student / Faculty Member</th>
+                    <th>Roll ID & Department</th>
+                    <th>College / Institute</th>
+                    <th>Current Role</th>
+                    <th>Karma</th>
+                    <th>Role Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-table-body">
+                  <!-- Dynamically populated via JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <div class="container footer-content">
+        <div class="footer-left">
+          <div class="brand-logo">
+            <div class="logo-badge"><i data-lucide="graduation-cap"></i></div>
+            <span class="brand-name">EduNotes<span class="brand-dot">.</span></span>
+          </div>
+          <p class="footer-desc">The official student collaboration platform for MAKAUT First-Year Computer Science & Engineering. Source of truth: sem126 syllabus.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h4>MAKAUT Syllabus</h4>
+            <a href="#syllabus" data-view="syllabus">Semester I Courses</a>
+            <a href="#syllabus" data-view="syllabus">Semester II Courses</a>
+            <a href="#syllabus" data-view="syllabus">Outcome-Based Framework (PO1-PO12)</a>
+          </div>
+          <div class="footer-col">
+            <h4>Community</h4>
+            <a href="#notes" data-view="notes">Classmate Notes</a>
+            <a href="#pyqs" data-view="pyqs">Question Bank</a>
+            <a href="#chat" data-view="chat">Study Channels</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div class="container bottom-row">
+          <p>&copy; 2026 EduNotes Community. Built for MAKAUT Engineering Students.</p>
+          <span class="footer-badge">Every Student Can Add Notes</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+
+  <!-- ================================================================= -->
+  <!-- MODALS CONTAINER (Upload, Duplicate, Detail, Edit, Report, Ask)   -->
+  <!-- ================================================================= -->
+
+  <!-- MODAL 1: UPLOAD NOTES MODAL ("Share Your Notes") -->
+  <div class="modal-backdrop" id="modal-upload-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge"><i data-lucide="file-plus-2"></i> Community Upload</div>
+          <h2 class="modal-title">Share Your Notes</h2>
+          <p class="modal-subtitle">Help your classmates learn better by sharing your study materials.</p>
+        </div>
+        <button class="modal-close-icon" id="close-upload-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+
+      <form class="modal-form" id="upload-notes-form">
+        <div class="form-row">
+          <div class="form-field form-field-2x">
+            <label for="upload-note-title" class="field-label">Note Title <span class="required">*</span></label>
+            <input type="text" id="upload-note-title" required placeholder="e.g. BS-M101 Calculus: Mean Value Theorem & Solved PYQs" class="form-input">
+            <span class="field-hint">Include course code & topic name for quick discovery.</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="upload-note-subject" class="field-label">Course / Subject <span class="required">*</span></label>
+            <select id="upload-note-subject" required class="form-select">
+              <option value="" disabled selected>Select MAKAUT Course</option>
+              <option value="BS-M101">BS-M101 Mathematics – I (Calculus & Linear Algebra)</option>
+              <option value="BS-PH101">BS-PH101 Physics – I (Waves, Optics & Quantum)</option>
+              <option value="ES-EE101">ES-EE101 Basic Electrical Engineering (BEEE)</option>
+              <option value="HM-HU101">HM-HU101 English for Communication</option>
+              <option value="BS-M201">BS-M201 Mathematics – II (Diff Equations & Vector Calculus)</option>
+              <option value="BS-CH101">BS-CH101 Chemistry – I</option>
+              <option value="ES-CS101">ES-CS101 Programming for Problem Solving (C)</option>
+              <option value="ES-EC201">ES-EC201 Basic Electronics Engineering</option>
+              <option value="ES-ME191">ES-ME191 Engineering Graphics & Design</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="upload-note-module" class="field-label">Module <span class="required">*</span></label>
+            <input type="text" id="upload-note-module" required placeholder="e.g. Module I · Calculus of Single Variable" class="form-input">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="upload-note-topic" class="field-label">Topic</label>
+            <input type="text" id="upload-note-topic" placeholder="e.g. Rolle's Theorem, Cauchy MVT" class="form-input">
+          </div>
+
+          <div class="form-field">
+            <label for="upload-note-category" class="field-label">Category <span class="required">*</span></label>
+            <select id="upload-note-category" required class="form-select">
+              <option value="Handwritten Notes" selected>Handwritten Notes</option>
+              <option value="Class Notes">Class Notes</option>
+              <option value="Lecture Notes">Lecture Notes</option>
+              <option value="Short Notes">Short Notes / Cheatsheet</option>
+              <option value="Important Questions">Important Questions / PYQs</option>
+              <option value="Assignments">Assignments</option>
+              <option value="Lab Materials">Lab Materials</option>
+              <option value="Practical Notes">Practical Notes</option>
+              <option value="Exam Preparation">Exam Preparation</option>
+              <option value="Reference Material">Reference Material</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label for="upload-note-description" class="field-label">Description / Summary</label>
+          <textarea id="upload-note-description" rows="3" placeholder="Briefly describe key formulas, derivations or solved problems included..." class="form-textarea"></textarea>
+        </div>
+
+        <div class="form-field">
+          <label for="upload-note-tags" class="field-label">Tags (comma-separated)</label>
+          <input type="text" id="upload-note-tags" placeholder="e.g. Calculus, MVT, PYQ, FormulaSheet" class="form-input">
+        </div>
+
+        <!-- Real File Upload Dropzone -->
+        <div class="form-field">
+          <label class="field-label">Upload File <span class="required">*</span></label>
+          <div class="file-dropzone" id="file-dropzone" tabindex="0" role="button">
+            <input type="file" id="note-file-input" class="hidden-file-input" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.txt">
+            <div class="dropzone-content" id="dropzone-prompt">
+              <div class="dropzone-icon"><i data-lucide="cloud-upload"></i></div>
+              <p class="dropzone-text"><strong>Click to browse</strong> or drag & drop file here</p>
+              <span class="dropzone-types">Supported: PDF, DOC, DOCX, PPT, PPTX, JPG, PNG, ZIP, TXT (Max 25 MB)</span>
+            </div>
+            <!-- Selected Pill -->
+            <div class="selected-file-pill" id="selected-file-pill" style="display: none;">
+              <i data-lucide="file-check" class="file-icon"></i>
+              <div class="file-info-text">
+                <strong id="selected-file-name">filename.pdf</strong>
+                <span id="selected-file-size">2.4 MB</span>
+              </div>
+              <button type="button" class="btn-remove-file" id="btn-remove-file" aria-label="Remove selected file"><i data-lucide="x"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-upload">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-lg" id="btn-submit-upload">
+            <i data-lucide="upload"></i>
+            <span>Upload & Publish to Classmates</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DUPLICATE DETECTION MODAL (Phase 18) -->
+  <div class="modal-backdrop" id="modal-duplicate-backdrop">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="warning-badge"><i data-lucide="alert-triangle"></i><span>Duplicate Check</span></div>
+        <h2 class="modal-title">A Similar Note May Already Exist</h2>
+        <button class="modal-close-icon" id="close-duplicate-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="duplicate-warning-body">
+        <p class="warning-text">A classmate has already shared a note with a very similar title for this subject:</p>
+        <div class="existing-note-card" id="duplicate-existing-preview"></div>
+        <p class="duplicate-question">Would you like to view the existing note or proceed with your upload anyway?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btn-view-existing-note"><i data-lucide="eye"></i><span>View Existing</span></button>
+        <button type="button" class="btn btn-primary" id="btn-upload-anyway"><i data-lucide="check"></i><span>Upload Anyway</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: NOTE DETAIL, RATINGS & COMMENTS (Phases 14, 15) -->
+  <div class="modal-backdrop" id="modal-detail-backdrop">
+    <div class="modal-card modal-xl">
+      <button class="modal-close-icon-float" id="close-detail-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      <div class="note-detail-layout" id="note-detail-content">
+        <!-- Dynamically injected -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: EDIT / VERSIONING MODAL (Phase 17) -->
+  <div class="modal-backdrop" id="modal-edit-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge"><i data-lucide="edit-3"></i> Note Versioning</div>
+          <h2 class="modal-title">Edit / Update Your Note</h2>
+          <p class="modal-subtitle">Replace the file or update topics while preserving your ratings and downloads.</p>
+        </div>
+        <button class="modal-close-icon" id="close-edit-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form class="modal-form" id="edit-notes-form">
+        <input type="hidden" id="edit-note-id">
+        <div class="form-field">
+          <label for="edit-note-title" class="field-label">Note Title</label>
+          <input type="text" id="edit-note-title" required class="form-input">
+        </div>
+        <div class="form-field">
+          <label for="edit-note-description" class="field-label">Description</label>
+          <textarea id="edit-note-description" rows="3" class="form-textarea"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="edit-file-input" class="field-label">Replace File (Bump to Version <span id="edit-next-version">v2</span>)</label>
+          <input type="file" id="edit-file-input" class="form-input" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.png,.zip,.txt">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-edit">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="save"></i><span>Save Updates</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: REPORT NOTE MODAL (Phase 16) -->
+  <div class="modal-backdrop" id="modal-report-backdrop">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="danger-badge"><i data-lucide="flag"></i> Content Moderation</div>
+        <h2 class="modal-title">Report Content</h2>
+        <button class="modal-close-icon" id="close-report-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="report-form">
+        <input type="hidden" id="report-item-id">
+        <p class="report-lead">Why are you reporting this study material?</p>
+        <div class="report-options">
+          <label class="report-option"><input type="radio" name="rep_reason" value="Wrong information" checked><span>Wrong or misleading formulas/information</span></label>
+          <label class="report-option"><input type="radio" name="rep_reason" value="Duplicate"><span>Duplicate upload of an existing note</span></label>
+          <label class="report-option"><input type="radio" name="rep_reason" value="Copyright concern"><span>Copyright concern / full textbook scan</span></label>
+          <label class="report-option"><input type="radio" name="rep_reason" value="Spam"><span>Spam, broken link, or corrupted file</span></label>
+          <label class="report-option"><input type="radio" name="rep_reason" value="Inappropriate content"><span>Inappropriate or abusive material</span></label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-report">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i data-lucide="flag"></i><span>Submit Report</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 6: ASK QUESTION MODAL (Phase 36) -->
+  <div class="modal-backdrop" id="modal-ask-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-badge"><i data-lucide="help-circle"></i> Academic Discussion</div>
+          <h2 class="modal-title">Ask an Academic Question</h2>
+          <p class="modal-subtitle">Post a question about syllabus formulas, theorems, or numericals to get answers from classmates.</p>
+        </div>
+        <button class="modal-close-icon" id="close-ask-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form class="modal-form" id="ask-question-form">
+        <div class="form-field">
+          <label for="ask-title" class="field-label">Question Title <span class="required">*</span></label>
+          <input type="text" id="ask-title" required placeholder="e.g. How to evaluate Cauchy Principal Value in improper integrals?" class="form-input">
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="ask-course" class="field-label">Course / Subject <span class="required">*</span></label>
+            <select id="ask-course" required class="form-select">
+              <option value="BS-M101">BS-M101 Mathematics – I</option>
+              <option value="BS-PH101">BS-PH101 Physics – I</option>
+              <option value="ES-EE101">ES-EE101 Basic Electrical Engineering (BEEE)</option>
+              <option value="HM-HU101">HM-HU101 English for Communication</option>
+              <option value="BS-M201">BS-M201 Mathematics – II</option>
+              <option value="BS-CH101">BS-CH101 Chemistry – I</option>
+              <option value="ES-CS101">ES-CS101 Programming for Problem Solving (C)</option>
+              <option value="ES-EC201">ES-EC201 Basic Electronics Engineering</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="ask-module" class="field-label">Module / Topic</label>
+            <input type="text" id="ask-module" placeholder="e.g. Module I · Calculus" class="form-input">
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="ask-details" class="field-label">Question Details / Formula Context <span class="required">*</span></label>
+          <textarea id="ask-details" required rows="4" placeholder="Describe the problem, steps you tried, or attach equations..." class="form-textarea"></textarea>
+        </div>
+        <div class="form-field">
+          <label for="ask-tags" class="field-label">Tags (comma-separated)</label>
+          <input type="text" id="ask-tags" placeholder="e.g. BS-M101, Calculus, Integrals" class="form-input">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancel-ask">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="send"></i><span>Post Question</span></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 7: OFFICIAL SYLLABUS PDF VIEWER (Phase 21) -->
+  <div class="modal-backdrop" id="modal-pdf-backdrop">
+    <div class="modal-card modal-xl" style="height: 92vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="margin-bottom: 1rem;">
+        <div>
+          <div class="modal-badge"><i data-lucide="shield-check"></i> OFFICIAL MAKAUT DOCUMENT</div>
+          <h2 class="modal-title" style="font-size: 1.3rem;">sem126-details.pdf — MAKAUT First-Year Curriculum</h2>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <a href="#" class="btn btn-sm btn-outline" id="btn-download-official-pdf" download="MAKAUT_sem126_details.pdf">
+            <i data-lucide="download"></i>
+            <span>Download PDF</span>
+          </a>
+          <button class="modal-close-icon" id="close-pdf-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+        </div>
+      </div>
+
+      <!-- Integrated PDF Viewer Stage -->
+      <div class="pdf-viewer-stage" id="pdf-viewer-stage">
+        <div class="pdf-toolbar">
+          <button class="btn btn-sm btn-outline" id="pdf-prev-page"><i data-lucide="chevron-left"></i> Prev</button>
+          <span class="pdf-page-display">Page <strong id="pdf-curr-page">1</strong> of <strong id="pdf-total-pages">68</strong></span>
+          <button class="btn btn-sm btn-outline" id="pdf-next-page">Next <i data-lucide="chevron-right"></i></button>
+          <div class="pdf-toolbar-divider"></div>
+          <button class="btn btn-sm btn-outline" id="pdf-zoom-in"><i data-lucide="zoom-in"></i> Zoom In</button>
+          <button class="btn btn-sm btn-outline" id="pdf-zoom-out"><i data-lucide="zoom-out"></i> Zoom Out</button>
+        </div>
+
+        <div class="pdf-render-canvas-container" id="pdf-render-container">
+          <div class="official-pdf-preview-sheet">
+            <div class="pdf-page-watermark">MAKAUT OFFICIAL SYLLABUS · sem126</div>
+            <div class="pdf-page-inner">
+              <h2 style="text-align: center; margin-bottom: 0.5rem;">MAULANA ABUL KALAM AZAD UNIVERSITY OF TECHNOLOGY, WEST BENGAL</h2>
+              <h4 style="text-align: center; color: #4338ca; margin-bottom: 1.5rem;">Curriculum Structure & Detailed Syllabus for B.Tech First Year (Semester I & II)</h4>
+              <hr style="border: 0; border-top: 2px solid #312e81; margin-bottom: 1.5rem;">
+              <p><strong>Programme:</strong> Bachelor of Technology (Computer Science & Engineering and Allied)</p>
+              <p><strong>Regulation:</strong> Outcome-Based Framework with AICTE Model Guidelines (Course Codes: BS-M101, BS-PH101, ES-EE101, HM-HU101, BS-M201, BS-CH101, ES-CS101, ES-EC201)</p>
+              <div class="pdf-sample-table">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.82rem;">
+                  <thead>
+                    <tr style="background: #1e1b4b; color: #fff;">
+                      <th style="padding: 6px; border: 1px solid #3730a3;">Code</th>
+                      <th style="padding: 6px; border: 1px solid #3730a3;">Course Title</th>
+                      <th style="padding: 6px; border: 1px solid #3730a3;">Type</th>
+                      <th style="padding: 6px; border: 1px solid #3730a3;">L-T-P</th>
+                      <th style="padding: 6px; border: 1px solid #3730a3;">Credits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">BS-M101</td><td style="padding: 5px; border: 1px solid #3730a3;">Mathematics – I (Calculus & Linear Algebra)</td><td style="padding: 5px; border: 1px solid #3730a3;">Theory</td><td style="padding: 5px; border: 1px solid #3730a3;">3-1-0</td><td style="padding: 5px; border: 1px solid #3730a3;">4</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">BS-PH101</td><td style="padding: 5px; border: 1px solid #3730a3;">Physics – I (Waves, Optics & Quantum)</td><td style="padding: 5px; border: 1px solid #3730a3;">Theory</td><td style="padding: 5px; border: 1px solid #3730a3;">3-1-0</td><td style="padding: 5px; border: 1px solid #3730a3;">4</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">ES-EE101</td><td style="padding: 5px; border: 1px solid #3730a3;">Basic Electrical Engineering (BEEE)</td><td style="padding: 5px; border: 1px solid #3730a3;">Theory</td><td style="padding: 5px; border: 1px solid #3730a3;">3-0-0</td><td style="padding: 5px; border: 1px solid #3730a3;">3</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">HM-HU101</td><td style="padding: 5px; border: 1px solid #3730a3;">English for Communication</td><td style="padding: 5px; border: 1px solid #3730a3;">Theory</td><td style="padding: 5px; border: 1px solid #3730a3;">2-0-0</td><td style="padding: 5px; border: 1px solid #3730a3;">2</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">BS-PH191</td><td style="padding: 5px; border: 1px solid #3730a3;">Physics – I Laboratory</td><td style="padding: 5px; border: 1px solid #3730a3;">Practical</td><td style="padding: 5px; border: 1px solid #3730a3;">0-0-3</td><td style="padding: 5px; border: 1px solid #3730a3;">1.5</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">ES-EE191</td><td style="padding: 5px; border: 1px solid #3730a3;">Basic Electrical Engineering Laboratory</td><td style="padding: 5px; border: 1px solid #3730a3;">Practical</td><td style="padding: 5px; border: 1px solid #3730a3;">0-0-2</td><td style="padding: 5px; border: 1px solid #3730a3;">1</td></tr>
+                    <tr><td style="padding: 5px; border: 1px solid #3730a3;">ES-ME191</td><td style="padding: 5px; border: 1px solid #3730a3;">Engineering Graphics & Design</td><td style="padding: 5px; border: 1px solid #3730a3;">Practical</td><td style="padding: 5px; border: 1px solid #3730a3;">1-0-4</td><td style="padding: 5px; border: 1px solid #3730a3;">3</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 8: ROLE UPDATE CONFIRMATION MODAL -->
+  <div class="modal-backdrop" id="modal-role-confirm-backdrop">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <div class="warning-badge"><i data-lucide="shield-alert"></i> Role Permission Update</div>
+        <h2 class="modal-title">Confirm Role Change</h2>
+        <button class="modal-close-icon" id="close-role-confirm-modal" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="role-confirm-body" style="display: flex; flex-direction: column; gap: 1rem;">
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Are you sure you want to update the role for this university member?</p>
+        <div class="role-confirm-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem;">
+          <strong id="role-confirm-user-name" style="font-size: 1.1rem; display: block; color: #fff;">Student Name</strong>
+          <span id="role-confirm-user-email" style="font-size: 0.82rem; color: var(--text-dim); display: block; margin-bottom: 0.8rem;">student@makaut.edu</span>
+          <div style="display: flex; align-items: center; gap: 0.8rem;">
+            <span class="role-badge" id="role-confirm-old-badge">STUDENT</span>
+            <i data-lucide="arrow-right" style="width: 16px; height: 16px; color: var(--text-dim);"></i>
+            <span class="role-badge" id="role-confirm-new-badge">MODERATOR</span>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.4rem;">
+          <i data-lucide="shield-check" style="width: 15px; height: 15px; color: var(--accent-emerald);"></i>
+          Role changes are database-enforced and grant immediate administrative or student privileges.
+        </p>
+      </div>
+      <div class="modal-footer" style="margin-top: 1.2rem;">
+        <button type="button" class="btn btn-outline" id="btn-cancel-role-confirm">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-submit-role-confirm">
+          <i data-lucide="check"></i>
+          <span>Confirm & Update Role</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ================================================================= -->
+  <!-- APPLICATION JAVASCRIPT MODULES                                    -->
+  <!-- ================================================================= -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="makaut-syllabus-data.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="auth-db-service.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
