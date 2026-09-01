@@ -70,122 +70,12 @@
       if (!localStorage.getItem(STORAGE_DEV_USERS)) {
         localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify([]));
       }
-
-      // Initial Notes if empty
-      if (!localStorage.getItem(STORAGE_DEV_NOTES) || JSON.parse(localStorage.getItem(STORAGE_DEV_NOTES) || '[]').length === 0) {
-        const initialNotes = [
-          {
-            id: 'note_makaut_m101_sample',
-            uploaderId: 'usr_admin_sayang',
-            uploaderName: 'Samir Gorai',
-            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-            title: 'Calculus & Linear Algebra Complete Module 1 Notes',
-            subjectId: 'BS-M101',
-            subjectName: 'Mathematics – I (BS-M101)',
-            moduleName: 'Module I: Calculus (Single Variable)',
-            topicName: 'Evolutes and Involutes, Rolle’s Theorem',
-            category: 'Handwritten Notes',
-            description: 'Comprehensive handwritten step-by-step notes covering Module 1: Rolle’s Theorem, Mean Value Theorems, Taylor’s & Maclaurin’s Series with verified solutions to past MAKAUT problems.',
-            tags: ['Mathematics', 'Calculus', 'Rolles Theorem', 'MAKAUT', 'First Year'],
-            storagePath: 'notes/usr_admin_sayang/note_sample/Calculus_Module1_Notes.pdf',
-            fileUrl: '',
-            fileName: 'Calculus_Module1_Notes.pdf',
-            fileType: 'PDF',
-            fileSize: '3.4 MB',
-            version: 1,
-            downloadsCount: 142,
-            viewsCount: 512,
-            ratingSum: 48,
-            ratingCount: 10,
-            isVerified: true,
-            comments: [],
-            createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-            updatedAt: new Date(Date.now() - 86400000 * 2).toISOString()
-          },
-          {
-            id: 'note_makaut_ph101_sample',
-            uploaderId: 'usr_admin_sayang',
-            uploaderName: 'Samir Gorai',
-            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-            title: 'Physics – I Waves & Optics Verified Formula Sheet',
-            subjectId: 'BS-PH101',
-            subjectName: 'Physics – I (BS-PH101)',
-            moduleName: 'Module II: Optics & Laser',
-            topicName: 'Interference, Diffraction & Fraunhofer',
-            category: 'Class Notes',
-            description: 'Concise review of wave optics, Young’s double slit, Newton’s rings, diffraction grating, and laser basics with all derivation steps.',
-            tags: ['Physics', 'Optics', 'Formulas', 'MAKAUT'],
-            storagePath: 'notes/usr_admin_sayang/note_sample/Physics1_Optics_Notes.pdf',
-            fileUrl: '',
-            fileName: 'Physics1_Optics_Notes.pdf',
-            fileType: 'PDF',
-            fileSize: '2.8 MB',
-            version: 1,
-            downloadsCount: 98,
-            viewsCount: 320,
-            ratingSum: 39,
-            ratingCount: 8,
-            isVerified: true,
-            comments: [],
-            createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-            updatedAt: new Date(Date.now() - 86400000 * 4).toISOString()
-          },
-          {
-            id: 'note_makaut_ee101_sample',
-            uploaderId: 'usr_admin_sayang',
-            uploaderName: 'Samir Gorai',
-            uploaderAvatar: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-            title: 'BEEE DC Circuits & Thevenin Theorem Worked Examples',
-            subjectId: 'ES-EE101',
-            subjectName: 'Basic Electrical Engineering (ES-EE101)',
-            moduleName: 'Module I: DC Circuits',
-            topicName: 'Superposition & Thevenin Theorem',
-            category: 'Important Questions',
-            description: '15 solved numerical questions on KVL, KCL, Thevenin, Norton, and Maximum Power Transfer theorems according to MAKAUT question patterns.',
-            tags: ['BEEE', 'Electrical', 'Thevenin', 'DC Circuits'],
-            storagePath: 'notes/usr_admin_sayang/note_sample/BEEE_DC_Circuits.pdf',
-            fileUrl: '',
-            fileName: 'BEEE_DC_Circuits.pdf',
-            fileType: 'PDF',
-            fileSize: '4.1 MB',
-            version: 1,
-            downloadsCount: 180,
-            viewsCount: 650,
-            ratingSum: 75,
-            ratingCount: 15,
-            isVerified: true,
-            comments: [],
-            createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-            updatedAt: new Date(Date.now() - 86400000 * 7).toISOString()
-          }
-        ];
-        localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(initialNotes));
+      if (!localStorage.getItem(STORAGE_DEV_NOTES)) {
+        localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify([]));
       }
-
-      if (!localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]').length === 0) {
-        const initialAnnouncements = [
-          {
-            id: 'ann_1',
-            title: 'Continuous Assessment CA-2 Schedule Published',
-            category: 'Exams',
-            badgeType: 'OFFICIAL',
-            authorName: 'Samir Gorai (Dean)',
-            content: 'The MAKAUT First-Year Continuous Assessment CA-2 examination schedule has been officially scheduled. All CSE students must submit their lab records before the examination date.',
-            createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
-          },
-          {
-            id: 'ann_2',
-            title: 'Official MAKAUT First Year sem126 Syllabus Reference',
-            category: 'MAKAUT',
-            badgeType: 'INFO',
-            authorName: 'Academic Administration',
-            content: 'All First-Year Engineering departments (Group A & Group B) are advised to follow the official OBE model curriculum structure for 2026-2027.',
-            createdAt: new Date(Date.now() - 86400000 * 6).toISOString()
-          }
-        ];
-        localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(initialAnnouncements));
+      if (!localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS)) {
+        localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify([]));
       }
-
       if (!localStorage.getItem(STORAGE_DEV_QUESTIONS)) {
         localStorage.setItem(STORAGE_DEV_QUESTIONS, JSON.stringify([]));
       }
@@ -204,93 +94,47 @@
       if (!localStorage.getItem(STORAGE_DEV_RATINGS)) {
         localStorage.setItem(STORAGE_DEV_RATINGS, JSON.stringify({}));
       }
-      // Seed registered student accounts if missing
+      if (!localStorage.getItem(STORAGE_DEV_REPORTS)) {
+        localStorage.setItem(STORAGE_DEV_REPORTS, JSON.stringify([]));
+      }
+
+      // Purge any legacy fake/seed users, mock notes, and mock announcements from localStorage
       try {
-        const existingUsers = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
-        const seedUsers = [
-          {
-            id: 'usr_admin_sayang',
-            email: 'sayangorai298@gmail.com',
-            fullName: 'Samir Gorai',
-            studentId: 'MAK-CSE-001',
-            college: 'MAKAUT Main Campus',
-            branch: 'Computer Science & Engineering',
-            semester: 'Semester I',
-            academicYear: '2026-2027',
-            role: 'ADMIN',
-            avatarGradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-            bio: 'Academic Dean & University Administrator',
-            karmaPoints: 500,
-            createdAt: new Date(Date.now() - 86400000 * 30).toISOString()
-          },
-          {
-            id: 'usr_student_dushyant',
-            email: 'dushyant.yadav@gmail.com',
-            fullName: 'Dushyant Yadav',
-            studentId: 'MAK-2026-108',
-            college: 'Heritage Institute of Technology',
-            branch: 'Computer Science & Engineering',
-            semester: 'Semester I',
-            academicYear: '2026-2027',
-            role: 'STUDENT',
-            avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-            bio: 'First Year CSE Student at HITK',
-            karmaPoints: 160,
-            createdAt: new Date(Date.now() - 86400000 * 14).toISOString()
-          },
-          {
-            id: 'usr_student_rahul',
-            email: 'rahul.sharma@makaut.edu',
-            fullName: 'Rahul Sharma',
-            studentId: 'MAK-2026-215',
-            college: 'Techno Main Salt Lake',
-            branch: 'Computer Science & Engineering',
-            semester: 'Semester I',
-            academicYear: '2026-2027',
-            role: 'STUDENT',
-            avatarGradient: 'linear-gradient(135deg, #10b981, #34d399)',
-            bio: 'Passionate about C Programming & Algorithms',
-            karmaPoints: 120,
-            createdAt: new Date(Date.now() - 86400000 * 10).toISOString()
-          },
-          {
-            id: 'usr_student_priya',
-            email: 'priya.mukherjee@makaut.edu',
-            fullName: 'Priya Mukherjee',
-            studentId: 'MAK-2026-342',
-            college: 'Kalyani Government Engineering College',
-            branch: 'Computer Science & Engineering',
-            semester: 'Semester I',
-            academicYear: '2026-2027',
-            role: 'STUDENT',
-            avatarGradient: 'linear-gradient(135deg, #ec4899, #f43f5e)',
-            bio: 'ECE to CSE department student contributor',
-            karmaPoints: 190,
-            createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
-          }
-        ];
-
-        let updated = false;
-        seedUsers.forEach(seed => {
-          const matchIdx = existingUsers.findIndex(u => u.email && u.email.toLowerCase() === seed.email.toLowerCase());
-          if (matchIdx === -1) {
-            existingUsers.push(seed);
-            updated = true;
-          } else if (seed.email === 'sayangorai298@gmail.com' && existingUsers[matchIdx].role !== 'ADMIN') {
-            existingUsers[matchIdx].role = 'ADMIN';
-            updated = true;
-          }
+        const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
+        const cleanedUsers = users.filter(u => {
+          const email = (u.email || '').toLowerCase();
+          return email !== 'dushyant.yadav@gmail.com' &&
+                 email !== 'rahul.sharma@makaut.edu' &&
+                 email !== 'priya.mukherjee@makaut.edu' &&
+                 !u.id?.startsWith('usr_student_');
         });
-
-        if (updated || !localStorage.getItem(STORAGE_DEV_USERS)) {
-          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(existingUsers));
+        if (cleanedUsers.length !== users.length) {
+          localStorage.setItem(STORAGE_DEV_USERS, JSON.stringify(cleanedUsers));
         }
 
-        if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === 'sayangorai298@gmail.com') {
-          this.currentUser.role = 'ADMIN';
-          this.saveLocalSession(this.currentUser);
+        const notes = JSON.parse(localStorage.getItem(STORAGE_DEV_NOTES) || '[]');
+        const cleanedNotes = notes.filter(n => {
+          const id = n.id || '';
+          return id !== 'note_makaut_m101_sample' &&
+                 id !== 'note_makaut_ph101_sample' &&
+                 id !== 'note_makaut_ee101_sample';
+        });
+        if (cleanedNotes.length !== notes.length) {
+          localStorage.setItem(STORAGE_DEV_NOTES, JSON.stringify(cleanedNotes));
+        }
+
+        const anns = JSON.parse(localStorage.getItem(STORAGE_DEV_ANNOUNCEMENTS) || '[]');
+        const cleanedAnns = anns.filter(a => a.id !== 'ann_1' && a.id !== 'ann_2');
+        if (cleanedAnns.length !== anns.length) {
+          localStorage.setItem(STORAGE_DEV_ANNOUNCEMENTS, JSON.stringify(cleanedAnns));
         }
       } catch (e) {}
+
+      // Ensure active primary admin sayangorai298@gmail.com is ADMIN
+      if (this.currentUser && this.currentUser.email && this.currentUser.email.toLowerCase() === 'sayangorai298@gmail.com') {
+        this.currentUser.role = 'ADMIN';
+        this.saveLocalSession(this.currentUser);
+      }
     }
 
     async initSupabaseListener() {
@@ -393,12 +237,20 @@
             email: data.user.email,
             fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
             studentId: meta.student_id || 'MAK-2026',
-            college: meta.college || 'MAKAUT Institute',
+        if (profileErr || !profile) {
+          const meta = data.user.user_metadata || {};
+          const isSayang = cleanEmail === 'sayangorai298@gmail.com';
+          const fallbackUser = {
+            id: data.user.id,
+            email: data.user.email,
+            fullName: meta.full_name || (isSayang ? 'Samir Gorai' : 'Verified Student'),
+            studentId: meta.student_id || 'Not provided',
+            college: meta.college || 'Not provided',
             branch: meta.branch || 'Computer Science & Engineering',
             semester: meta.semester || 'Semester I',
             role: isSayang ? 'ADMIN' : 'STUDENT',
             avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-            karmaPoints: 100
+            karmaPoints: 0
           };
           this.saveLocalSession(fallbackUser);
           return fallbackUser;
@@ -409,15 +261,15 @@
           id: profile.id,
           email: profile.email,
           fullName: profile.full_name,
-          studentId: profile.student_id,
-          college: profile.college,
-          branch: profile.branch,
-          semester: profile.semester,
-          academicYear: profile.academic_year,
+          studentId: profile.student_id || 'Not provided',
+          college: profile.college || 'Not provided',
+          branch: profile.branch || 'Computer Science & Engineering',
+          semester: profile.semester || 'Semester I',
+          academicYear: profile.academic_year || '2026-2027',
           role: (profile.role && profile.role !== 'STUDENT') ? profile.role : (isSayang ? 'ADMIN' : (profile.role || 'STUDENT')),
           avatarGradient: profile.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
           bio: profile.bio || '',
-          karmaPoints: profile.karma_points || 100
+          karmaPoints: profile.karma_points || 0
         };
 
         this.saveLocalSession(userObj);
@@ -436,15 +288,15 @@
             id: 'usr_admin_sayang',
             email: cleanEmail,
             fullName: 'Samir Gorai',
-            studentId: 'MAK-CSE-001',
-            college: 'MAKAUT Main Campus',
+            studentId: 'Not provided',
+            college: 'Not provided',
             branch: 'Computer Science & Engineering',
             semester: 'Semester I',
             academicYear: '2026-2027',
             role: 'ADMIN',
             avatarGradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
             bio: 'University Administrator / Academic Dean',
-            karmaPoints: 500,
+            karmaPoints: 0,
             createdAt: new Date().toISOString()
           };
           users.push(user);
@@ -480,8 +332,8 @@
           options: {
             data: {
               full_name: formData.fullName.trim(),
-              student_id: formData.studentId.trim(),
-              college: formData.college.trim(),
+              student_id: formData.studentId ? formData.studentId.trim() : 'Not provided',
+              college: formData.college ? formData.college.trim() : 'Not provided',
               branch: formData.branch || 'Computer Science & Engineering',
               semester: formData.semester || 'Semester I'
             }
@@ -494,13 +346,13 @@
           id: data.user ? data.user.id : 'usr_' + Date.now(),
           email: cleanEmail,
           fullName: formData.fullName.trim(),
-          studentId: formData.studentId.trim(),
-          college: formData.college.trim(),
+          studentId: formData.studentId ? formData.studentId.trim() : 'Not provided',
+          college: formData.college ? formData.college.trim() : 'Not provided',
           branch: formData.branch || 'Computer Science & Engineering',
           semester: formData.semester || 'Semester I',
           role: isSayang ? 'ADMIN' : 'STUDENT',
           avatarGradient: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-          karmaPoints: 100
+          karmaPoints: 0
         };
 
         this.saveLocalSession(userObj);
@@ -528,16 +380,16 @@
         id,
         email: cleanEmail,
         fullName: formData.fullName.trim(),
-        studentId: formData.studentId ? formData.studentId.trim() : `MAK-2026-${Math.floor(100 + Math.random() * 900)}`,
-        college: formData.college ? formData.college.trim() : 'MAKAUT Affiliated Engineering College',
+        studentId: formData.studentId ? formData.studentId.trim() : 'Not provided',
+        college: formData.college ? formData.college.trim() : 'Not provided',
         branch: formData.branch || 'Computer Science & Engineering',
         semester: formData.semester || 'Semester I',
         academicYear: '2026-2027',
-        role: 'STUDENT', // Strictly default to STUDENT
+        role: isSayang ? 'ADMIN' : 'STUDENT', // Strictly default to STUDENT unless primary admin
         passwordHash: formData.password,
         avatarGradient: randomGradient,
-        bio: 'MAKAUT First Year CSE Student.',
-        karmaPoints: 100,
+        bio: '',
+        karmaPoints: 0,
         createdAt: new Date().toISOString()
       };
 
@@ -1138,7 +990,7 @@
     getUserStats(userId = null) {
       const targetUserId = userId || (this.currentUser ? this.currentUser.id : null);
       if (!targetUserId) {
-        return { totalUploads: 0, totalDownloads: 0, avgRating: '5.0', karmaPoints: 0, badge: 'New Student' };
+        return { totalUploads: 0, totalDownloads: 0, avgRating: '0.0', karmaPoints: 0, badge: 'New Student' };
       }
 
       const notes = this.getAllNotes().filter((n) => n.uploaderId === targetUserId);
@@ -1153,11 +1005,11 @@
           count += n.ratingCount;
         }
       });
-      const avgRating = count > 0 ? (sum / count).toFixed(1) : '5.0';
+      const avgRating = count > 0 ? (sum / count).toFixed(1) : '0.0';
 
       const users = JSON.parse(localStorage.getItem(STORAGE_DEV_USERS) || '[]');
       const user = users.find((u) => u.id === targetUserId);
-      const karma = user ? user.karmaPoints || 100 : 100;
+      const karma = user ? (user.karmaPoints || user.karma_points || 0) : (this.currentUser && this.currentUser.id === targetUserId ? (this.currentUser.karmaPoints || 0) : 0);
 
       let badge = 'Student Contributor 📚';
       if (totalDownloads > 100 || karma > 400) badge = 'Master Contributor ⭐';
@@ -1206,14 +1058,14 @@
               id: u.id,
               email: u.email,
               fullName: u.full_name,
-              studentId: u.student_id,
-              college: u.college,
-              branch: u.branch,
-              semester: u.semester,
-              academicYear: u.academic_year,
+              studentId: u.student_id || 'Not provided',
+              college: u.college || 'Not provided',
+              branch: u.branch || 'Computer Science & Engineering',
+              semester: u.semester || 'Semester I',
+              academicYear: u.academic_year || '2026-2027',
               role: u.role || 'STUDENT',
               avatarGradient: u.avatar_url || 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-              karmaPoints: u.karma_points || 100,
+              karmaPoints: u.karma_points || 0,
               createdAt: u.created_at
             }));
           }
@@ -1227,6 +1079,9 @@
         const safeUser = { ...u };
         delete safeUser.passwordHash;
         delete safeUser.password;
+        safeUser.karmaPoints = safeUser.karmaPoints || 0;
+        safeUser.studentId = safeUser.studentId || 'Not provided';
+        safeUser.college = safeUser.college || 'Not provided';
         return safeUser;
       });
     }

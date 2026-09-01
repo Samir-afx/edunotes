@@ -437,38 +437,54 @@ document.addEventListener('DOMContentLoaded', () => {
     // Announcements
     if (annList) {
       const announcements = authDb.getAnnouncements().slice(0, 3);
-      annList.innerHTML = announcements.map(ann => `
-        <div class="announcement-card ${ann.category === 'MAKAUT' ? 'makaut' : (ann.badgeType === 'URGENT' ? 'urgent' : '')}">
-          <div class="ann-header">
-            <span class="ann-tag">${escapeHTML(ann.badgeType)} · ${escapeHTML(ann.category)}</span>
-            <span class="ann-time">${window.formatTimeAgo ? window.formatTimeAgo(ann.createdAt) : 'Recently'}</span>
+      if (announcements.length === 0) {
+        annList.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.88rem;">
+            <p>No announcements broadcasted yet.</p>
           </div>
-          <h4 class="ann-title">${escapeHTML(ann.title)}</h4>
-          <p class="ann-content">${escapeHTML(ann.content)}</p>
-        </div>
-      `).join('');
+        `;
+      } else {
+        annList.innerHTML = announcements.map(ann => `
+          <div class="announcement-card ${ann.category === 'MAKAUT' ? 'makaut' : (ann.badgeType === 'URGENT' ? 'urgent' : '')}">
+            <div class="ann-header">
+              <span class="ann-tag">${escapeHTML(ann.badgeType)} · ${escapeHTML(ann.category)}</span>
+              <span class="ann-time">${window.formatTimeAgo ? window.formatTimeAgo(ann.createdAt) : 'Recently'}</span>
+            </div>
+            <h4 class="ann-title">${escapeHTML(ann.title)}</h4>
+            <p class="ann-content">${escapeHTML(ann.content)}</p>
+          </div>
+        `).join('');
+      }
     }
 
     // Calendar
     if (calList) {
       const events = authDb.getCalendarEvents();
-      calList.innerHTML = events.map(ev => {
-        const d = new Date(ev.eventDate);
-        const month = d.toLocaleString('default', { month: 'short' }).toUpperCase();
-        const day = d.getDate();
-        return `
-          <div class="cal-event-item">
-            <div class="cal-date-badge">
-              <div>${day}</div>
-              <div style="font-size: 0.65rem;">${month}</div>
-            </div>
-            <div class="cal-event-info">
-              <h5>${escapeHTML(ev.title)}</h5>
-              <p>${escapeHTML(ev.courseCode)} · ${escapeHTML(ev.description)}</p>
-            </div>
+      if (events.length === 0) {
+        calList.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.88rem;">
+            <p>No upcoming academic events scheduled.</p>
           </div>
         `;
-      }).join('');
+      } else {
+        calList.innerHTML = events.map(ev => {
+          const d = new Date(ev.eventDate);
+          const month = d.toLocaleString('default', { month: 'short' }).toUpperCase();
+          const day = d.getDate();
+          return `
+            <div class="cal-event-item">
+              <div class="cal-date-badge">
+                <div>${day}</div>
+                <div style="font-size: 0.65rem;">${month}</div>
+              </div>
+              <div class="cal-event-info">
+                <h5>${escapeHTML(ev.title)}</h5>
+                <p>${escapeHTML(ev.courseCode)} · ${escapeHTML(ev.description)}</p>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     calculateOverallProgress();
